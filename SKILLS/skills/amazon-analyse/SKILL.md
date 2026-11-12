@@ -3,6 +3,12 @@ name: "amazon-analyse"
 description: "对亚马逊竞品Listing进行全维度穿透分析，包括文案逻辑、评论分析、关键词分析、市场动态等。分析完成后自动保存为Markdown报告文档到reports/目录。Invoke when user uses /amazon-analyse command with a product ASIN."
 ---
 
+> **本机适配说明（重要）**
+> 本 skill 原文基于 **Sorftime MCP** 编写。本机只接入卖家精灵 MCP（`mcp__ss_mcp__`）。
+> 执行前请读 `../amazon-base/MCP映射表.md`，把文中所有 Sorftime 工具名替换为卖家精灵等价工具。
+> 口径差异（搜索量样本、字段名）必须在报告中注明，不要混用两套数据。
+
+
 # 亚马逊竞品Listing全维度穿透分析
 
 ## 快速参考
