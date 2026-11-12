@@ -3,6 +3,12 @@ name: "review-analysis"
 description: "对亚马逊商品评论进行深度分析，自动识别产品痛点、分析退货原因，生成改进建议和客服回复模板。Invoke when user uses /review-analysis command with a product ASIN."
 ---
 
+> **本机适配说明（重要）**
+> 本 skill 原文基于 **Sorftime MCP** 编写。本机只接入卖家精灵 MCP（`mcp__ss_mcp__`）。
+> 执行前请读 `../amazon-base/MCP映射表.md`，把文中所有 Sorftime 工具名替换为卖家精灵等价工具。
+> 口径差异（搜索量样本、字段名）必须在报告中注明，不要混用两套数据。
+
+
 # 亚马逊商品评论深度分析
 
 ## 快速参考
