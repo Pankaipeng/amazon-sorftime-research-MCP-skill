@@ -36,10 +36,10 @@ description: 卖家精灵 Amazon 全链路数据调研 Skill。通过 43 个 MCP
 MCP 客户端直接调用工具：
 
 ```
-mcp__sellersprite__<tool_name>
+mcp__ss_mcp__<tool_name>
 ```
 
-例: `mcp__sellersprite__product_research`
+例: `mcp__ss_mcp__product_research`
 
 ### 方式 B：通过 curl（无 MCP 客户端时备用）
 
