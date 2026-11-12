@@ -10,24 +10,24 @@
 
 ```python
 # 1. 主力扩词（按种子词扩展）
-mcp__sellersprite__keyword_miner({
+mcp__ss_mcp__keyword_miner({
   "request": {"marketplace":"US", "keyword":"<种子词>"}
 })
 
 # 2. 趋势验证（注意：扁平参数；字段是 time/search/chainGrowth/yearlyGrowth）
-mcp__sellersprite__keyword_research_trends({
+mcp__ss_mcp__keyword_research_trends({
   "marketplace":"US", "keyword":"<种子词>"
 })
 
 # 3. 竞品关键词反查（必须传竞品 ASIN）
 for asin in competitor_asins:  # 3-5 个竞品
-  mcp__sellersprite__traffic_keyword({
+  mcp__ss_mcp__traffic_keyword({
     "request": {"marketplace":"US", "asin":asin}
   })
 
 # 4. 竞品真实出单词（用于排序词库优先级）
 for asin in competitor_asins:
-  mcp__sellersprite__keyword_order({
+  mcp__ss_mcp__keyword_order({
     "request": {"marketplace":"US", "asin":asin}
   })
 ```

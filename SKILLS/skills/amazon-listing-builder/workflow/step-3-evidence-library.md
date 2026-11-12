@@ -11,13 +11,13 @@
 ```python
 # 1. 竞品好评（提取客户认可的卖点 = 可信证据）
 for asin in competitor_asins:
-  mcp__sellersprite__review({
+  mcp__ss_mcp__review({
     "marketplace":"US", "asin":asin
   })
   # 用好评主题作为"客户认可的证据"
 
 # 2. 自己 ASIN 的好评（如有）
-mcp__sellersprite__review({
+mcp__ss_mcp__review({
   "marketplace":"US", "asin":"<自己的ASIN>"
 })
 ```

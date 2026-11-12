@@ -11,20 +11,20 @@
 ```python
 # 1. 竞品差评（用户问题库最核心来源）
 for asin in competitor_asins:  # 3-5 个竞品
-  mcp__sellersprite__review({
+  mcp__ss_mcp__review({
     "marketplace":"US", "asin":asin  # 注意：扁平参数
   })
   # ⚠️ 每次最多返回 20 条，是样本数据，需多次调用或多 ASIN 取并集
 
 # 2. 竞品 Listing（拿标题/五点/描述/A+ 结构参考）
 for asin in competitor_asins:
-  mcp__sellersprite__asin_detail({
+  mcp__ss_mcp__asin_detail({
     "marketplace":"US", "asin":asin
   })
 
 # 3. 竞品流量结构（看主力出单词反映的需求）
 for asin in competitor_asins:
-  mcp__sellersprite__traffic_keyword({
+  mcp__ss_mcp__traffic_keyword({
     "request": {"marketplace":"US", "asin":asin}
   })
 ```
