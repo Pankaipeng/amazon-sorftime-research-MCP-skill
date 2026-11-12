@@ -58,24 +58,24 @@
 ```python
 # 必须按顺序调用以下 MCP 工具
 # 1. 关键词挖掘（主力扩词）
-mcp__sellersprite__keyword_miner({
+mcp__ss_mcp__keyword_miner({
   "request": {"marketplace":"US", "keyword":"<种子词>"}
 })
 
 # 2. 关键词趋势验证（字段：time/search/chainGrowth/yearlyGrowth）
-mcp__sellersprite__keyword_research_trends({
+mcp__ss_mcp__keyword_research_trends({
   "marketplace":"US", "keyword":"<种子词>"   # 注意：扁平参数
 })
 
 # 3. 竞品关键词反查（找出竞品真实出单词）
 for asin in competitor_asins:
-  mcp__sellersprite__traffic_keyword({
+  mcp__ss_mcp__traffic_keyword({
     "request": {"marketplace":"US", "asin":asin}
   })
 
 # 4. 竞品出单词（用于词库优先级排序）
 for asin in competitor_asins:
-  mcp__sellersprite__keyword_order({
+  mcp__ss_mcp__keyword_order({
     "request": {"marketplace":"US", "asin":asin}
   })
 ```
@@ -89,14 +89,14 @@ for asin in competitor_asins:
 ```python
 # 1. 竞品差评（必走 MCP，禁止浏览器抓评论页）
 for asin in competitor_asins:
-  mcp__sellersprite__review({
+  mcp__ss_mcp__review({
     "marketplace":"US", "asin":asin
   })
   # ⚠️ 注意：每次最多返回 20 条，是样本数据
 
 # 2. 竞品 Listing 结构（拿五点和描述参考）
 for asin in competitor_asins:
-  mcp__sellersprite__asin_detail({
+  mcp__ss_mcp__asin_detail({
     "marketplace":"US", "asin":asin
   })
 ```
@@ -130,7 +130,7 @@ mcp__web_reader__webReader({
 
 ```python
 # 可调用：竞品评论中的好评（提取"客户认可的证据"）
-mcp__sellersprite__review({
+mcp__ss_mcp__review({
   "marketplace":"US", "asin":"<自己的ASIN>"
 })
 ```
@@ -183,22 +183,22 @@ mcp__sellersprite__review({
 
 ```python
 # 1. 自己 ASIN 的流量诊断
-mcp__sellersprite__traffic_listing({
+mcp__ss_mcp__traffic_listing({
   "request":{"marketplace":"US","asin":"<自己的ASIN>"}
 })
 
 # 2. 自己 ASIN 的出单词
-mcp__sellersprite__keyword_order({
+mcp__ss_mcp__keyword_order({
   "request":{"marketplace":"US","asin":"<自己的ASIN>"}
 })
 
 # 3. 价格分布
-mcp__sellersprite__market_price_distribution({
+mcp__ss_mcp__market_price_distribution({
   "request":{"marketplace":"US","nodeIdPath":"<类目>"}
 })
 
 # 4. 自己 Listing 的评论反馈（监控差评主题）
-mcp__sellersprite__review({
+mcp__ss_mcp__review({
   "marketplace":"US","asin":"<自己的ASIN>"
 })
 ```
@@ -216,7 +216,7 @@ mcp__sellersprite__review({
 每次开始八步工作流前，必须确认：
 
 - [ ] `.mcp.json` 配置正确（URL + headers.secret-key）
-- [ ] MCP 客户端能成功调用 `mcp__sellersprite__product_node` 测试工具
+- [ ] MCP 客户端能成功调用 `mcp__ss_mcp__product_node` 测试工具
 - [ ] 目标 ASIN 已确认（自己的 + 3-5 个竞品）
 - [ ] 类目节点 nodeIdPath 已查到（用 `product_node` 工具）
 - [ ] 站点确认（US / UK / DE / JP）
@@ -229,11 +229,11 @@ mcp__sellersprite__review({
 
 | 场景 | ❌ 错误做法 | ✅ 正确做法 |
 |------|-----------|-----------|
-| 抓竞品评论 | `webReader(amazon.com/product-reviews/B07X...)` | `mcp__sellersprite__review({asin:"B07X..."})` |
-| 抓竞品标题 | `webReader(amazon.com/dp/B07X...)` | `mcp__sellersprite__asin_detail({asin:"B07X..."})` |
-| 拿关键词搜索量 | `webReader(Amazon 搜索建议)` | `mcp__sellersprite__keyword_miner({keyword:"..."})` |
-| 看 BSR 历史 | `webReader(keepa.com)` | `mcp__sellersprite__keepa_info({asin:"..."})` |
-| 看价格分布 | `webReader(翻 Amazon 列表)` | `mcp__sellersprite__market_price_distribution` |
+| 抓竞品评论 | `webReader(amazon.com/product-reviews/B07X...)` | `mcp__ss_mcp__review({asin:"B07X..."})` |
+| 抓竞品标题 | `webReader(amazon.com/dp/B07X...)` | `mcp__ss_mcp__asin_detail({asin:"B07X..."})` |
+| 拿关键词搜索量 | `webReader(Amazon 搜索建议)` | `mcp__ss_mcp__keyword_miner({keyword:"..."})` |
+| 看 BSR 历史 | `webReader(keepa.com)` | `mcp__ss_mcp__keepa_info({asin:"..."})` |
+| 看价格分布 | `webReader(翻 Amazon 列表)` | `mcp__ss_mcp__market_price_distribution` |
 | 看 Reddit 评论 | ✅ `webReader(reddit.com/r/...)` | MCP 无此数据 |
 | 看竞品 QA 板块 | ✅ `webReader(amazon.com/ask-questions/...)` | MCP 无 QA 工具 |
 | 验证 FDA 认证 | ✅ `webReader(fda.gov)` | MCP 无认证查询 |

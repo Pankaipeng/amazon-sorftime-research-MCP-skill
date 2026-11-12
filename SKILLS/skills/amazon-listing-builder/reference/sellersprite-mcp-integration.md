@@ -29,7 +29,7 @@
 ## 二、调用方式
 
 ### 方式 A：MCP 客户端（推荐）
-直接调用 `mcp__sellersprite__<tool_name>`。
+直接调用 `mcp__ss_mcp__<tool_name>`。
 
 ### 方式 B：curl（备用）
 ```bash
