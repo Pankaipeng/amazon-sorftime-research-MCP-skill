@@ -3,7 +3,7 @@
 找美国卖家销售的高价高销商品（中国卖家可降维竞争）。
 
 ## 工具
-`mcp__sellersprite__product_research` — `{"request": {...}}`
+`mcp__ss_mcp__product_research` — `{"request": {...}}`
 
 ## 筛选
 - `sellerNation`: "US", `minPrice`: 25, `minUnits`: 300

@@ -3,7 +3,7 @@
 深度分析差评，聚类痛点并生成产品改良指南。
 
 ## 工具
-`mcp__sellersprite__review` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
+`mcp__ss_mcp__review` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
 
 ## ⚠️ 限制
 - 每次最多 20 条，分析结果需注明"基于样本"

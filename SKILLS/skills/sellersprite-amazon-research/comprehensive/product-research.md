@@ -10,7 +10,7 @@
 
 ## 工具调用
 
-通过 MCP client 调用：`mcp__sellersprite__product_research`
+通过 MCP client 调用：`mcp__ss_mcp__product_research`
 
 **参数模式**：`request` 嵌套对象 — 所有参数包裹在 `request` 键下。
 
@@ -24,13 +24,13 @@ data = raw.get('data', [])
 
 ### 第1步: 获取类目节点（如需）
 
-调用 `mcp__sellersprite__product_node`：
+调用 `mcp__ss_mcp__product_node`：
 - 参数：`{"request": {"marketplace": "US", "keyword": "yoga mat"}}`
 - ⚠️ `nodeLabelLocale`（中文翻译）不可靠，以英文 `nodeLabelPath` 为准
 
 ### 第2步: 执行商品筛选
 
-调用 `mcp__sellersprite__product_research`：
+调用 `mcp__ss_mcp__product_research`：
 - 参数：`{"request": {"marketplace":"US", "keyword":"...", "minUnits":100, ...}}`
 
 **常用筛选维度：** `keyword`, `marketplace`, `month`, `minUnits/maxUnits`, `minRevenue/maxRevenue`, `minPrice/maxPrice`, `minRating`, `minSubBsrRank`, `fulfillment`("FBA,FBM,AMZ"), `sellerNation`, `minLqs`, `minProfit`

@@ -3,7 +3,7 @@
 找标题密度低的长尾词（竞品未优化的关键词）。
 
 ## 工具
-`mcp__sellersprite__keyword_miner` — `{"request": {...}}`
+`mcp__ss_mcp__keyword_miner` — `{"request": {...}}`
 
 ## 筛选
 - `minSearch`: 500

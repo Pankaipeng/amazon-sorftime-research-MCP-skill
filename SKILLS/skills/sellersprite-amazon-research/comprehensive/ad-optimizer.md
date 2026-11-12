@@ -10,7 +10,7 @@
 
 ## 工具调用
 
-通过 MCP client 调用：`mcp__sellersprite__<tool_name>`。
+通过 MCP client 调用：`mcp__ss_mcp__<tool_name>`。
 
 **响应解析**：`result.content[0].text` 是 JSON 字符串，需二次解析。
 
@@ -18,11 +18,11 @@
 
 ### 第1步: 关键词排名与转化
 
-`mcp__sellersprite__keyword_order` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+`mcp__ss_mcp__keyword_order` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
 
 ### 第2步: 流量关键词
 
-`mcp__sellersprite__traffic_keyword` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+`mcp__ss_mcp__traffic_keyword` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
 - 提取：`searches`、`bid/bidMin/bidMax`、`adPosition`、`rankPosition`
 
 ### 第3步: 关键词分类

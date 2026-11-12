@@ -3,8 +3,8 @@
 通过 ABA 数据发现近 3 月持续增长的关键词。
 
 ## 工具
-`mcp__sellersprite__keyword_research` — `{"request": {...}}`
-`mcp__sellersprite__keyword_research_trends` — 扁平参数 `{"marketplace":"US", "keyword":"..."}`
+`mcp__ss_mcp__keyword_research` — `{"request": {...}}`
+`mcp__ss_mcp__keyword_research_trends` — 扁平参数 `{"marketplace":"US", "keyword":"..."}`
 
 ## 筛选逻辑
 - 近 3 月搜索排名持续上升

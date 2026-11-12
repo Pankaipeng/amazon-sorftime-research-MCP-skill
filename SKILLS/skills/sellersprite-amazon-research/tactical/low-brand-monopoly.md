@@ -3,7 +3,7 @@
 找品牌集中度低的类目（新品牌友好）。
 
 ## 工具
-`mcp__sellersprite__market_research` — `{"request": {...}}`
+`mcp__ss_mcp__market_research` — `{"request": {...}}`
 
 ## 筛选
 - 客户端过滤 `topBrandCrn <= 0.45`（品牌集中度≤45%）

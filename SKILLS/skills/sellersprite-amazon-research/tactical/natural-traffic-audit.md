@@ -3,7 +3,7 @@
 找自然流量占比高的 ASIN（验证是否为真实需求驱动）。
 
 ## 工具
-`mcp__sellersprite__traffic_source` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+`mcp__ss_mcp__traffic_source` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
 
 ## 过滤标准
 - 自然流量占比 > 60%（0~1 比较 > 0.6）

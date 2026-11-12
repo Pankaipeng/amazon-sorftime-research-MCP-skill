@@ -10,7 +10,7 @@
 
 ## 工具调用
 
-通过 MCP client 调用：`mcp__sellersprite__<tool_name>`
+通过 MCP client 调用：`mcp__ss_mcp__<tool_name>`
 
 **参数模式**：`keyword_miner`/`keyword_research` 使用 `request` 嵌套对象；`keyword_research_trends` 使用扁平参数。
 
@@ -20,17 +20,17 @@
 
 ### 第1步: 关键词挖掘
 
-调用 `mcp__sellersprite__keyword_miner`：
+调用 `mcp__ss_mcp__keyword_miner`：
 - 参数：`{"request": {"marketplace":"US", "keyword":"种子词"}}`
 
 ### 第2步: 关键词研究
 
-调用 `mcp__sellersprite__keyword_research`：
+调用 `mcp__ss_mcp__keyword_research`：
 - 参数：`{"request": {"marketplace":"US", "keyword":"种子词"}}`
 
 ### 第3步: 关键词趋势
 
-调用 `mcp__sellersprite__keyword_research_trends`：
+调用 `mcp__ss_mcp__keyword_research_trends`：
 - 扁平参数：`{"marketplace":"US", "keyword":"种子词"}`
 - ⚠️ 实际字段：`time`（非 `month`）、`search`（非 `searches`）、`chainGrowth`（环比）、`yearlyGrowth`（同比）
 

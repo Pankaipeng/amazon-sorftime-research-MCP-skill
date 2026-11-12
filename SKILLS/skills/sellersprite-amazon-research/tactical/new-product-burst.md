@@ -3,7 +3,7 @@
 找上架不久但销量已快速攀升的新品。
 
 ## 工具
-`mcp__sellersprite__product_research` — `{"request": {...}}`
+`mcp__ss_mcp__product_research` — `{"request": {...}}`
 
 ## 筛选参数
 - `minUnits`: 300, `maxRatings`: 100, `minUnitsCr`: 正增长

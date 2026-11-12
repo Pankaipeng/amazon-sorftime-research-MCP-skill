@@ -3,7 +3,7 @@
 找搜索量大但点击集中度低的关键词（蓝海词）。
 
 ## 工具
-`mcp__sellersprite__keyword_miner` — `{"request": {...}}`
+`mcp__ss_mcp__keyword_miner` — `{"request": {...}}`
 
 ## 筛选参数
 - `minSearch`: 5000

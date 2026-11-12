@@ -3,8 +3,8 @@
 找去年同期搜索量暴增的关键词，提前布局。
 
 ## 工具
-`mcp__sellersprite__keyword_miner` — `{"request": {...}}`
-`mcp__sellersprite__keyword_research_trends` — 扁平参数
+`mcp__ss_mcp__keyword_miner` — `{"request": {...}}`
+`mcp__ss_mcp__keyword_research_trends` — 扁平参数
 
 ## 筛选
 - 去年同比环比增长 > 100%

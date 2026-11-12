@@ -10,7 +10,7 @@
 
 ## 工具调用
 
-`mcp__sellersprite__review` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
+`mcp__ss_mcp__review` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
 
 **响应解析**：`result.content[0].text` 是 JSON 字符串，需二次解析。
 
@@ -25,7 +25,7 @@
 
 ### 第1步: 获取评论数据
 
-调用 `mcp__sellersprite__review` 获取 ASIN 评论数据。
+调用 `mcp__ss_mcp__review` 获取 ASIN 评论数据。
 
 ### 第2步: NLP 分类分析
 

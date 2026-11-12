@@ -10,7 +10,7 @@
 
 ## 工具调用
 
-所有工具通过 MCP client 调用：`mcp__sellersprite__<tool_name>`
+所有工具通过 MCP client 调用：`mcp__ss_mcp__<tool_name>`
 
 **参数模式**：大部分工具使用 `request` 嵌套对象；少量工具（`asin_detail`, `traffic_keyword_stat`, `keepa_info` 等）使用扁平参数。
 
@@ -24,24 +24,24 @@ data = raw.get('data', [])
 
 ### 第1步: 获取竞品列表（如输入为关键词）
 
-调用 `mcp__sellersprite__competitor_lookup`：
+调用 `mcp__ss_mcp__competitor_lookup`：
 - 参数：`{"request": {"marketplace":"US", "keyword":"..."}}`
 
 若用户直接提供 ASIN，跳过此步。
 
 ### 第2步: 并行获取 ASIN 深度数据
 
-1. **`mcp__sellersprite__asin_detail`** — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
-2. **`mcp__sellersprite__traffic_keyword`** — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
-3. **`mcp__sellersprite__keepa_info`** — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
+1. **`mcp__ss_mcp__asin_detail`** — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
+2. **`mcp__ss_mcp__traffic_keyword`** — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+3. **`mcp__ss_mcp__keepa_info`** — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
    - 返回 `buyBox` 是 `[{timePoint, value}]` 数组，取最后一项为当前价
    - `bsr` 同理取 `[{timePoint, value}]` 格式
-4. **`mcp__sellersprite__traffic_source`** — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+4. **`mcp__ss_mcp__traffic_source`** — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
 
 ### 第3步: 辅助数据
 
-- `mcp__sellersprite__asin_prediction` — 扁平参数
-- `mcp__sellersprite__asin_coupon_trend` — 扁平参数
+- `mcp__ss_mcp__asin_prediction` — 扁平参数
+- `mcp__ss_mcp__asin_coupon_trend` — 扁平参数
 
 ### 第4步: 保存结果
 

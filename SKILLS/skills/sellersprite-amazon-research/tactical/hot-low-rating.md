@@ -3,7 +3,7 @@
 找月销高但评分低的产品（产品缺陷机会）。
 
 ## 工具
-`mcp__sellersprite__product_research` — `{"request": {...}}`
+`mcp__ss_mcp__product_research` — `{"request": {...}}`
 
 ## 筛选
 - `minUnits`: 1000, `maxRating`: 4.2

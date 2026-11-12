@@ -3,7 +3,7 @@
 找 FBM 发货但销量不错的商品（可转 FBA 抢流量）。
 
 ## 工具
-`mcp__sellersprite__product_research` — `{"request": {...}}`
+`mcp__ss_mcp__product_research` — `{"request": {...}}`
 
 ## 筛选
 - `fulfillment`: "FBM", `minUnits`: 300

@@ -10,7 +10,7 @@
 
 ## 工具调用
 
-通过 MCP client 调用：`mcp__sellersprite__<tool_name>`
+通过 MCP client 调用：`mcp__ss_mcp__<tool_name>`
 
 **响应解析**：`result.content[0].text` 是 JSON 字符串，需二次解析。
 
@@ -18,17 +18,17 @@
 
 ### 第1步: 获取 Listing 基本信息
 
-`mcp__sellersprite__asin_detail` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
+`mcp__ss_mcp__asin_detail` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
 
 ### 第2步: 获取 Listing 流量数据
 
-`mcp__sellersprite__traffic_listing` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+`mcp__ss_mcp__traffic_listing` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
 
 ### 第3步: 获取关键词表现
 
-`mcp__sellersprite__keyword_order` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+`mcp__ss_mcp__keyword_order` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
 
-`mcp__sellersprite__traffic_keyword` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
+`mcp__ss_mcp__traffic_keyword` — `{"request": {"marketplace":"US", "asin":"B0XXX"}}`
 
 ### 第4步: 保存结果 + 生成报告
 

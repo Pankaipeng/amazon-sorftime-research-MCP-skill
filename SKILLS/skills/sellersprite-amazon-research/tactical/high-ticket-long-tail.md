@@ -3,8 +3,8 @@
 找均价≥$80 且搜索量适中的关键词（高利润长尾市场）。
 
 ## 工具
-`mcp__sellersprite__keyword_miner` — `{"request": {...}}`
-`mcp__sellersprite__keyword_research` — `{"request": {...}}`
+`mcp__ss_mcp__keyword_miner` — `{"request": {...}}`
+`mcp__ss_mcp__keyword_research` — `{"request": {...}}`
 
 ## 筛选
 - 客户端过滤 `avgPrice >= 80`

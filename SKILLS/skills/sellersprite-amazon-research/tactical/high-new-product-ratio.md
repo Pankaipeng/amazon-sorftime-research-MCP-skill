@@ -3,7 +3,7 @@
 找新品占比高且新品仍能出单的类目。
 
 ## 工具
-`mcp__sellersprite__market_research` — `{"request": {...}}`
+`mcp__ss_mcp__market_research` — `{"request": {...}}`
 - `newProduct`: 6
 
 ## 筛选

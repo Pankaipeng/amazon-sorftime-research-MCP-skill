@@ -3,7 +3,7 @@
 找 FBA 运费低、毛利高的轻小商品。
 
 ## 工具
-`mcp__sellersprite__product_research` — `{"request": {...}}`
+`mcp__ss_mcp__product_research` — `{"request": {...}}`
 
 ## 筛选
 - `maxFba`: 4, `minProfit`: 0.5, `fulfillment`: "FBA"

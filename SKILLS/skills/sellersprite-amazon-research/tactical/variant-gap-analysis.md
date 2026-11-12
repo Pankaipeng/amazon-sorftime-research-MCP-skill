@@ -3,7 +3,7 @@
 分析竞品变体覆盖，找未被覆盖的变体缺口。
 
 ## 工具
-`mcp__sellersprite__asin_detail` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
+`mcp__ss_mcp__asin_detail` — 扁平参数 `{"marketplace":"US", "asin":"B0XXX"}`
 
 ## 步骤
 1. 获取 ASIN 变体信息（颜色/尺寸/款式）
