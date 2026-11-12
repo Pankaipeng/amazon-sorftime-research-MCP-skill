@@ -53,13 +53,13 @@
 
 | 数据 | MCP 工具 |
 |------|---------|
-| 关键词搜索量 / PPC / 趋势 | `mcp__sellersprite__keyword_miner` / `keyword_research_trends` |
-| 竞品 ASIN 详情（标题/五点/价格） | `mcp__sellersprite__asin_detail` |
-| 竞品关键词反查 | `mcp__sellersprite__traffic_keyword` / `keyword_order` |
-| **竞品评论（含差评）** | `mcp__sellersprite__review` ⚠️ **严禁**抓 `amazon.com/product-reviews/` |
-| 价格 / BSR 历史 | `mcp__sellersprite__keepa_info` |
-| 市场价格分布 | `mcp__sellersprite__market_price_distribution` |
-| 流量结构 | `mcp__sellersprite__traffic_listing` / `traffic_keyword_stat` |
+| 关键词搜索量 / PPC / 趋势 | `mcp__ss_mcp__keyword_miner` / `keyword_research_trends` |
+| 竞品 ASIN 详情（标题/五点/价格） | `mcp__ss_mcp__asin_detail` |
+| 竞品关键词反查 | `mcp__ss_mcp__traffic_keyword` / `keyword_order` |
+| **竞品评论（含差评）** | `mcp__ss_mcp__review` ⚠️ **严禁**抓 `amazon.com/product-reviews/` |
+| 价格 / BSR 历史 | `mcp__ss_mcp__keepa_info` |
+| 市场价格分布 | `mcp__ss_mcp__market_price_distribution` |
+| 流量结构 | `mcp__ss_mcp__traffic_listing` / `traffic_keyword_stat` |
 
 ### 允许使用浏览器的场景（MCP 无对应数据）
 
