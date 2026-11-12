@@ -3,6 +3,12 @@ name: amazon-listing-builder
 description: 亚马逊爆款 Listing 打造助手（基于 Cosmo 语义算法 + Alexa/Rufus 对话式购物趋势，适配 2026-07 标题新规：Item Name 75 字符 + Item Highlights 商品亮点 125 字符双字段结构）。通过"先分析、再生成、最后校验"的 AI 工程化流程，把 Listing 从"关键词堆砌"升级为"语义覆盖 + 需求证据 + 答案型内容"。提供八步工作流（关键词分层词库 → 用户问题库 → 卖点证据库 → 标题+亮点分层 → 五点 → 描述A+ → Search Terms → QA）、给 Codex 的可复用提示词、真实案例（抗 UV 户外仿真植物、down filled pillows QA）以及五大常见误区检查。触发场景：(1) 用户说"帮我写 Listing / 写标题 / 写五点 / 写描述 / 写 A+ / 写 QA / 写 Search Terms"(2) 用户输入 /listing-builder, /build-listing, /cosmo-listing, /alexa-qa, /listing-title, /listing-bullets, /listing-aplus, /listing-st, /listing-qa(3) 用户提及 Cosmo 算法、Alexa 算法、Rufus、对话式购物、语义搜索、答案型 Listing(4) 用户希望结合卖家精灵 MCP 数据做关键词分层与痛点映射(5) 用户提及 Item Highlights、商品亮点、title_differentiation、2026 标题新规、75 字符标题拆分、标题改版。适用于亚马逊美国站等站点的运营、Listing 优化师、产品开发、跨境营销人员。
 ---
 
+> **本机适配说明（重要）**
+> 本 skill 原文基于 **Sorftime MCP** 编写。本机只接入卖家精灵 MCP（`mcp__ss_mcp__`）。
+> 执行前请读 `../amazon-base/MCP映射表.md`，把文中所有 Sorftime 工具名替换为卖家精灵等价工具。
+> 口径差异（搜索量样本、字段名）必须在报告中注明，不要混用两套数据。
+
+
 # 亚马逊爆款 Listing 打造助手（Cosmo / Alexa 新算法版）
 
 ---
@@ -17,14 +23,14 @@ description: 亚马逊爆款 Listing 打造助手（基于 Cosmo 语义算法 + 
 
 | 数据类型 | MCP 工具 |
 |---------|---------|
-| 关键词搜索量 / PPC / 趋势 | `mcp__sellersprite__keyword_miner` / `keyword_research_trends` |
-| 竞品 ASIN 详情（标题/五点/价格/评分） | `mcp__sellersprite__asin_detail` |
-| 竞品关键词反查 | `mcp__sellersprite__traffic_keyword` / `keyword_order` |
-| **竞品评论（含差评）** | `mcp__sellersprite__review` ⚠️ **禁止抓 `amazon.com/product-reviews/`** |
-| 竞品流量结构 | `mcp__sellersprite__traffic_listing` / `traffic_keyword_stat` |
-| 价格 / BSR 历史 | `mcp__sellersprite__keepa_info` |
-| 市场价格分布 | `mcp__sellersprite__market_price_distribution` |
-| 类目节点 | `mcp__sellersprite__product_node` |
+| 关键词搜索量 / PPC / 趋势 | `mcp__ss_mcp__keyword_miner` / `keyword_research_trends` |
+| 竞品 ASIN 详情（标题/五点/价格/评分） | `mcp__ss_mcp__asin_detail` |
+| 竞品关键词反查 | `mcp__ss_mcp__traffic_keyword` / `keyword_order` |
+| **竞品评论（含差评）** | `mcp__ss_mcp__review` ⚠️ **禁止抓 `amazon.com/product-reviews/`** |
+| 竞品流量结构 | `mcp__ss_mcp__traffic_listing` / `traffic_keyword_stat` |
+| 价格 / BSR 历史 | `mcp__ss_mcp__keepa_info` |
+| 市场价格分布 | `mcp__ss_mcp__market_price_distribution` |
+| 类目节点 | `mcp__ss_mcp__product_node` |
 
 ### 允许使用浏览器的场景（MCP 无对应数据）
 
@@ -138,9 +144,9 @@ description: 亚马逊爆款 Listing 打造助手（基于 Cosmo 语义算法 + 
 
 | 场景 | ❌ 错误做法 | ✅ 正确做法 |
 |------|-----------|-----------|
-| 抓竞品评论 | `webReader(amazon.com/product-reviews/...)` | `mcp__sellersprite__review` |
-| 抓竞品标题 | `webReader(amazon.com/dp/...)` | `mcp__sellersprite__asin_detail` |
-| 拿关键词 | `webReader(Amazon 搜索建议)` | `mcp__sellersprite__keyword_miner` |
+| 抓竞品评论 | `webReader(amazon.com/product-reviews/...)` | `mcp__ss_mcp__review` |
+| 抓竞品标题 | `webReader(amazon.com/dp/...)` | `mcp__ss_mcp__asin_detail` |
+| 拿关键词 | `webReader(Amazon 搜索建议)` | `mcp__ss_mcp__keyword_miner` |
 | 看 Reddit | ✅ `webReader(reddit.com/r/...)` | MCP 无此数据 |
 | 看竞品 QA | ✅ `webReader(amazon.com/ask-questions/...)` | MCP 无 QA 工具 |
 | 验证 FDA | ✅ `webReader(fda.gov)` | MCP 无认证查询 |

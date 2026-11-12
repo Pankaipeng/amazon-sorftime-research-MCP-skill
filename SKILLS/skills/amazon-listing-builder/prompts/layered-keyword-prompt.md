@@ -8,11 +8,11 @@
 
 ```python
 # 必须按顺序调用以下 MCP 工具
-mcp__sellersprite__keyword_miner({"request":{"marketplace":"US","keyword":"<种子词>"}})
-mcp__sellersprite__keyword_research_trends({"marketplace":"US","keyword":"<种子词>"})  # 扁平参数
+mcp__ss_mcp__keyword_miner({"request":{"marketplace":"US","keyword":"<种子词>"}})
+mcp__ss_mcp__keyword_research_trends({"marketplace":"US","keyword":"<种子词>"})  # 扁平参数
 for asin in competitor_asins:
-    mcp__sellersprite__traffic_keyword({"request":{"marketplace":"US","asin":asin}})
-    mcp__sellersprite__keyword_order({"request":{"marketplace":"US","asin":asin}})
+    mcp__ss_mcp__traffic_keyword({"request":{"marketplace":"US","asin":asin}})
+    mcp__ss_mcp__keyword_order({"request":{"marketplace":"US","asin":asin}})
 ```
 
 ❌ **严禁**：`webReader(amazon.com/s?k=...)` 抓 Amazon 搜索页凑词

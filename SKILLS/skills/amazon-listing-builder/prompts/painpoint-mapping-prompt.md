@@ -4,12 +4,12 @@
 
 ## 🚨 数据来源铁律
 
-**用户痛点主来源必须走 MCP**：竞品差评用 `mcp__sellersprite__review`，**严禁**用浏览器抓 `amazon.com/product-reviews/`。
+**用户痛点主来源必须走 MCP**：竞品差评用 `mcp__ss_mcp__review`，**严禁**用浏览器抓 `amazon.com/product-reviews/`。
 
 ```python
 # 必须调用（拿竞品差评作为痛点真相）
 for asin in competitor_asins:
-    mcp__sellersprite__review({"marketplace":"US","asin":asin})
+    mcp__ss_mcp__review({"marketplace":"US","asin":asin})
     # ⚠️ 每次最多 20 条，需多 ASIN 取并集
 ```
 
