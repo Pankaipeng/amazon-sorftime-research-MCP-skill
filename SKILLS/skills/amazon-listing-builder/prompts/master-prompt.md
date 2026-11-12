@@ -26,12 +26,12 @@
 
 | 数据 | 必须调用的 MCP 工具 |
 |------|------------------|
-| 关键词 | `mcp__sellersprite__keyword_miner` + `keyword_research_trends` + `traffic_keyword` + `keyword_order` |
-| 竞品 Listing | `mcp__sellersprite__asin_detail` |
-| 竞品评论 | `mcp__sellersprite__review`（严禁用 web reader 抓 `amazon.com/product-reviews/`） |
-| 流量结构 | `mcp__sellersprite__traffic_listing` + `traffic_keyword_stat` |
-| 价格历史 | `mcp__sellersprite__keepa_info` |
-| 价格分布 | `mcp__sellersprite__market_price_distribution` |
+| 关键词 | `mcp__ss_mcp__keyword_miner` + `keyword_research_trends` + `traffic_keyword` + `keyword_order` |
+| 竞品 Listing | `mcp__ss_mcp__asin_detail` |
+| 竞品评论 | `mcp__ss_mcp__review`（严禁用 web reader 抓 `amazon.com/product-reviews/`） |
+| 流量结构 | `mcp__ss_mcp__traffic_listing` + `traffic_keyword_stat` |
+| 价格历史 | `mcp__ss_mcp__keepa_info` |
+| 价格分布 | `mcp__ss_mcp__market_price_distribution` |
 
 **浏览器仅作必要补充**（MCP 无对应工具）：
 - 竞品 QA 板块：`amazon.com/ask-questions/...`

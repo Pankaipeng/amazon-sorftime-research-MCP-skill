@@ -6,15 +6,15 @@
 
 | 数据 | 优先来源 | 备用来源 |
 |------|---------|---------|
-| 自己 ASIN 流量诊断 | `mcp__sellersprite__traffic_listing` | - |
-| 自己 ASIN 出单词 | `mcp__sellersprite__keyword_order` | - |
-| 自己 ASIN 评论 | `mcp__sellersprite__review` | - |
-| 价格 / BSR 历史 | `mcp__sellersprite__keepa_info` | - |
-| 价格分布 | `mcp__sellersprite__market_price_distribution` | - |
+| 自己 ASIN 流量诊断 | `mcp__ss_mcp__traffic_listing` | - |
+| 自己 ASIN 出单词 | `mcp__ss_mcp__keyword_order` | - |
+| 自己 ASIN 评论 | `mcp__ss_mcp__review` | - |
+| 价格 / BSR 历史 | `mcp__ss_mcp__keepa_info` | - |
+| 价格分布 | `mcp__ss_mcp__market_price_distribution` | - |
 | 广告搜索词报告 | 卖家后台（Reports → Advertising） | - |
 | 客服记录 | 卖家后台（Buyer-Seller Messaging） | - |
 | 退货报告 | 卖家后台（Returns） | - |
-| 站外趋势 | `mcp__sellersprite__google_trend` | `webReader(trends.google.com)` |
+| 站外趋势 | `mcp__ss_mcp__google_trend` | `webReader(trends.google.com)` |
 
 **禁止用浏览器抓 Amazon 商品页凑数据**。所有 Amazon 站内数据走 MCP，后台报表从卖家后台导出。
 
