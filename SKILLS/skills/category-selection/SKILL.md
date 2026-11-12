@@ -3,6 +3,12 @@ name: "category-selection"
 description: "亚马逊品类自动化选品分析技能。通过五维评分模型对亚马逊品类进行深度市场调研，生成Markdown分析报告。当用户使用 /category-selection 命令或提出'分析XX品类'、'XX品类市场调研'、'XX品类选品'等需求时触发此技能。支持配置分析数量，默认Top20。"
 ---
 
+> **本机适配说明（重要）**
+> 本 skill 原文基于 **Sorftime MCP** 编写。本机只接入卖家精灵 MCP（`mcp__ss_mcp__`）。
+> 执行前请读 `../amazon-base/MCP映射表.md`，把文中所有 Sorftime 工具名替换为卖家精灵等价工具。
+> 口径差异（搜索量样本、字段名）必须在报告中注明，不要混用两套数据。
+
+
 ## 快速参考
 
 ### 一键执行工作流 (推荐)
@@ -383,7 +389,7 @@ curl -s -X POST "https://mcp.sorftime.com?key={API_KEY}" \
 #### 4. 数据解析失败 (Mojibake 编码问题)
 **问题**: data.json 中的中文显示为 "Top100äº§å" 等乱码
 
-**原因**: API 返回 Unicode-escape 格式 (\u4ea7\u54c1)，解码后产生 Mojibake
+**原因**: API 返回 Unicode-escape 格式 (产品)，解码后产生 Mojibake
 
 **解决方案** (v4.0 已自动修复):
 - `fix_mojibake()` 函数自动修复编码问题
