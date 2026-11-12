@@ -3,6 +3,12 @@ name: sif-amazon-research
 description: Use this skill for Amazon e-commerce research, market validation, competitor analysis, traffic diagnosis, keyword strategy, advertising review, launch evaluation, and growth optimization using the Sif MCP server and Sif's real marketplace, traffic, keyword, sales, and ad data. Trigger when users mention Sif, Sif MCP, ASIN research, Amazon product opportunity research, keyword opportunity, competitor teardown, traffic drop/root-cause diagnosis, advertising structure review, or whether a product/market is worth entering, launching, scaling, optimizing, or abandoning.
 ---
 
+> **本机适配说明（重要）**
+> 本 skill 依赖的 MCP **未接入**（见 `../amazon-base/MCP映射表.md` 第三节）。
+> 只能借用它的**方法论框架**（问题拆解、证据链、决策输出格式），
+> 不要假装已经拿到其专属数据。可替代的数据路径见映射表第二节。
+
+
 # Sif Amazon Research
 
 ## Operating rules
