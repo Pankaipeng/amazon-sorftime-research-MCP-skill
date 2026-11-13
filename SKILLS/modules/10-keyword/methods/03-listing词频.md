@@ -1,17 +1,17 @@
-# 方法 C：竞品 Listing 词频
+# 方法 C：竞品 Listing 词频（五点）
 
 > 导图子项：竞品 listing 高频词
 
-标题只有 75 字符，装不下竞品真实的表达方式。**五点 + 描述里藏着"买家语言"**——那些买家真会搜、但竞品没往标题里塞的词。
+标题只有 75 字符，装不下竞品真实的表达方式。**五点里藏着"买家语言"**——那些买家真会搜、但竞品没往标题里塞的词，以及决定转化和退货的说法。
 
 ---
 
 ## 和方法 B 的区别
 
-| | 方法 B 标题词频 | 方法 C Listing 词频 |
+| | 方法 B 标题词频 | 方法 C 五点词频 |
 |---|---|---|
 | 反映 | 竞品的**关键词取舍** | 竞品的**卖点表达** |
-| 高频词偏向 | 品类词、属性词 | 痛点词、场景词、证据词、规格词 |
+| 高频词偏向 | 品类词、属性词 | 痛点词、场景词、证据词、限制词 |
 | 噪声 | 低 | 高（长句多，含水量大） |
 | 主要用途 | 标题、Highlights | 五点、A+、QA、Search Terms |
 
@@ -21,66 +21,94 @@
 
 ## 步骤
 
-### 1. 取字段
+### 1. 取字段：`features`，不是 `bullets`
+
+**这是最容易踩的坑。** `asin_detail` 返回里的五点叫 `features`（字符串数组），不叫 `bullets` / `bulletPoints` / `featureBullets`。按后者取名会一律拿到 null，然后误判成"接口不给五点"。
 
 ```python
-for p in pool:
-    d = mcp__ss_mcp__asin_detail({"marketplace":"US", "asin":p["asin"]})
-    # 需要 title / bullets / description 三个字段
+mcp__ss_mcp__asin_detail({
+  "marketplace": "US", "asin": "B0B5THNRX5",
+  "returnFields": "asin,title,features"      # 要 features
+})
 ```
+
+实测（2026-11-13）：30 个壁挂竞品 ASIN，**30/30 都取得到 features**，共 164 条五点句，平均 5.5 条/ASIN。而同一次返回里 `description` 是 null——描述拿不到，五点拿得到，别把两件事混为一谈。
+
+`overviews` 字段有时带结构化属性（材质、安装方式、颜色），可以顺手拿来核对事实卡，但它是 JSON 字符串，要自己 parse。
 
 ### 2. 落 JSON
 
 ```json
 [
-  {"asin":"B0XXXX","level":0,
+  {"asin":"B0XXXX","brand":"...","level":0,
    "title":"...",
    "bullets":["...","..."],
-   "description":"..."}
+   "description":""}
 ]
 ```
+
+`level` 决定权重：0 = 用户自己的 ASIN（权重 3），1 = 其他竞品（权重 1）。
 
 ### 3. 跑同一个脚本
 
 ```bash
 python scripts/freq.py products.json \
   --weight-l0 3 --weight-other 1 \
-  --min-asin 2 --max-n 3 --top 200 --out listing_freq.csv
+  --min-asin 2 --max-n 3 --top 300 --out listing_freq.csv
 ```
 
-**字段权重自动生效**：标题 3 / 五点 2 / 描述 1。所以这一次跑完，方法 B 和 C 的结果都有了——只是看不同的列。
+字段权重自动生效：标题 3 / 五点 2 / 描述 1。所以这一次跑完，方法 B 和 C 的结果都有了，只是看不同的列。
 
 ### 4. 只看 Listing 贡献的词
 
-```bash
-# 用 python 过滤：in_bullets + in_description > 0 且 in_title 为 0
-```
-
-这些是"竞品写了但没放进标题"的词。它们要么是装不下，要么是竞品觉得优先级低——**两种情况对你都是机会**。
+`in_title` 为 0、`in_bullets` 大于 0 的行，就是"竞品写了但没放进标题"的词。实测 285 行里有 156 行属于这一类。
 
 ---
 
-## 三种词要单独拎出来
+## 方法 C 有两个产出，别混在一起
 
-| 类型 | 识别方式 | 用途 |
+| 产出 | 是什么 | 去哪 |
 |---|---|---|
-| **痛点词** | 含 "won't / no / easy to / without / prevents" 等 | 喂给 `30-insight` 和五点第 2 点（痛点解决） |
-| **证据词** | 含数字、"tested / certified / rated / holds up to" | 喂给 `40-selling-point` 的证据库 |
-| **限制词** | 含 "only / not for / indoor / do not" | 直接进 Highlights 的限制条件，降低退货率 |
+| **① 五点词频** | 竞品在五点里高频使用的词组 | 给**已发现**的词补一条"竞品确实这么写"的证据（`cov_c`）；不单独发现搜索词 |
+| **② 三类词** | 痛点 / 证据 / 限制 的说法 | 直接进五点、A+、QA 的素材表 |
 
-**限制词最容易被忽略，但它是转化率工具**。竞品写了 "indoor use only" 你没写，买家买错场景就会差评。
+**为什么①不该单独发现词。** 五点里大量词组不是搜索词——实测 285 条里只有 23 条进了词库，其余是 `please`、`allows`、`smooth surface`、`dry quickly` 这类句子成分。如果让它们单独入库，词库会从 235 条涨到 301 条，多出来的 66 条全是 NODATA，把 EST 占比和层级分布一起搅乱。
+
+所以 `config.yaml` 里默认：
+
+```yaml
+sample:
+  c_listing_mode: support_only    # 只给已发现的词补证据
+  # discover = 允许五点词频单独发现新词（会把非搜索词带进来，慎用）
+```
+
+**②才是方法 C 的主要价值**，见下一节。
+
+---
+
+## 三类词要单独拎出来
+
+**这一类不能用 `freq.py` 算。** `freq.py` 的停用词表里有 `no / not / without / only / can / will`——这些正是判定"痛点词"和"限制词"的关键词。用词频表算出来的 `drilling` 看不出它是 "no drilling" 还是 "drilling required"，意思正好相反。
+
+正确做法：**拿正则扫五点原文**，保留完整句子结构。
+
+| 类型 | 识别方式（正则示意） | 实测覆盖 | 用途 |
+|---|---|---|---|
+| **痛点/利益** | `no drill\w*` / `won't fall` / `holds up to \d+ lbs` / `dry (quick\|fast)` / `rust-proof` | 沥水 26/30、防锈 19/30、免打孔 12/30 | 五点第 1-3 点 |
+| **证据** | `304` / `sus ?304` / 数字 + `lbs` / `\d+ x \d+` | 304 14/30、承重 8/30、尺寸 11/30 | 卖点证据库 |
+| **限制** | `only (work\|stick)` / `not (suitable\|recommend)` / `textured\|porous` / `please measure` / `double bowl` | 粗糙面 10/30、量尺寸 7/30、双槽 4/30 | 五点第 5 点 + QA，降退货 |
+
+**限制词最容易被忽略，但它是转化率工具。** 竞品写了 "not suitable for textured surfaces" 你没写，买家装不上就退货。实测 30 个竞品里 10 个写了粗糙面限制、7 个写了"购买前请量尺寸"。
 
 ---
 
 ## 噪声怎么处理
 
-Listing 文本含水量大，不处理会得到一堆垃圾：
-
 | 处理 | 做法 |
 |---|---|
-| 停用词 | `freq.py` 内置表，不够就补 |
+| 停用词 | `freq.py` 内置表。**做三类词分析时要绕开它**，见上节 |
 | 泛词 | `product / item / set / pack` 等单字丢弃（`GENERIC` 表） |
-| 品牌词 | 统计前剔除所有竞品品牌名 |
+| 品牌词 | 统计前剔除所有竞品品牌名（`--strip-brands`） |
 | 长句 | `--max-n 3` 限制最长 3 词，避免整句成词 |
 | 单 ASIN 独有词 | `--min-asin 2` 过滤，除非专门做差异化分析 |
 
@@ -88,12 +116,17 @@ Listing 文本含水量大，不处理会得到一堆垃圾：
 
 ## 输出
 
-`listing_freq.csv`，列同方法 B。重点看 `in_bullets` 和 `in_description`：
+两个文件：
+
+- `03-Listing高频词.csv`：`词/词组, 出现在几个ASIN, 覆盖率, 加权分, 标题加权, 五点加权, 频段`
+- `03b-三类词抽取.csv`：`类型, 词组, 覆盖ASIN数, 覆盖率, 例证, 用途`
+
+**怎么读**：
 
 | 现象 | 含义 |
 |---|---|
-| `in_bullets` 高、`in_title` 低 | 竞品认为这是卖点但不是搜索词 → 五点素材 |
-| `in_title` 高、`in_bullets` 低 | 只用来占搜索位，竞品自己也不当真 → 可能是个虚火词 |
+| `五点加权` 高、`标题加权` 0 | 竞品认为这是卖点但不是搜索词 → 五点素材 |
+| `标题加权` 高、`五点加权` 低 | 只用来占搜索位，竞品自己也不当真 → 可能是个虚火词 |
 | 两者都高 | 真正的核心卖点词 → 进卖点库，权重给满 |
 
 ---
@@ -103,7 +136,7 @@ Listing 文本含水量大，不处理会得到一堆垃圾：
 两个方法跑的是同一个脚本、同一份输入，**不要跑两次**。直接在一次输出里按列区分：
 
 - 看 `in_title` 列 → 方法 B 的结果
-- 看 `in_bullets + in_description` 列 → 方法 C 的结果
-- 三列加起来 → 综合词表
+- 看 `in_bullets` 列 → 方法 C 的词频
+- 三类词另跑一遍正则 → `03b`
 
 合并规则见 `methods/05-合并打分输出.md`。
