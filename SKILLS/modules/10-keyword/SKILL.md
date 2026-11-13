@@ -39,6 +39,8 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 
 **A 扩展池、B/C 提取共识、D 补长尾、E 验证转化。** 五路互相校验，不互相替代。
 
+> **实测提醒（2026-11-13）**：`asin_detail` 不返回 `bullets` / `description`，方法 C 实际跑不起来。遇到这种情况就只跑方法 B，并在报告里写明「方法 C 未执行」，不要拿标题词频冒充 Listing 词频。
+
 详细方法见：
 
 - `methods/01-竞品词反查.md`
@@ -46,6 +48,7 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 - `methods/03-listing词频.md`
 - `methods/04-自动补全.md`
 - `methods/05-合并打分输出.md`
+- `实测问题清单.md`（每次跑完往里补）
 
 ---
 
@@ -82,11 +85,13 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 
 | 层级 | 判定 | 典型特征 | 用途 |
 |---|---|---|---|
-| **大词** | 月搜索量 Top 10% 且 R < 0.8 | 1-2 个词，泛，点击分散 | 后期占坑，前期不碰 |
-| **核心词** | R ≥ 0.8，搜索量中位以上 | 2-4 个词，明确指向本品 | 标题主力、广告主战场 |
-| **长尾词** | 搜索量后 50% 或词数 ≥ 4 | 意图很明确，转化高 | ST、QA、五点埋词 |
+| **大词** | 搜索量 ≥ P75 且 R < 0.8 | 泛，点击分散，词义宽 | 后期占坑，前期不碰 |
+| **核心词** | R ≥ 0.8，搜索量 ≥ P50 | 明确指向本品 | 标题主力、广告主战场 |
+| **长尾词** | 搜索量 < P50，或词数 ≥ 4 且搜索量 < P75 | 意图很明确，转化高 | ST、QA、五点埋词 |
 
 阈值是默认值，类目不同要调。**调完必须在报告里写清用了什么阈值。**
+
+> **2026-11-13 实测修正**：原规则「词数 ≥ 4 即算长尾」会把 `sponge holder for kitchen sink`（167,620 搜索、5 个词）判成长尾词。词数只是辅助条件，必须叠加搜索量门槛。大词门槛也从 P90 降到 P75——P90 会把 `kitchen sink accessories`（71,536 搜索）漏成核心词。
 
 ### 优先级
 
@@ -119,7 +124,7 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 - 搜索量来源：卖家精灵 keyword_miner（非 ABA，两者不可相加）
 - 时间窗：2026-10
 - 竞品样本：12 个 ASIN（head 2 / direct 6 / new 2 / 扩池 2）
-- 自动补全：29 次请求，去重后 137 词
+- 自动补全：30 次请求，去重后 137 词
 - 后台数据：未提供 / 已提供（文件名）
 - 已知限制：keyword_miner 对长尾词返回空值，这部分用自动补全位次做代理
 ```
@@ -133,8 +138,11 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 | 限制 | 影响 | 处理 |
 |---|---|---|
 | `keyword_order` 实测返回 0 条 | 竞品转化分层拿不到 | 不用它。改用 `traffic_keyword` 的 `conversionKeywordType`，为空就标 `DATA_MISSING`，靠后台报表补 |
+| `asin_detail` 不返回 bullets / description | 方法 C 跑不了 | 只跑方法 B，报告里写明方法 C 未执行 |
+| `product_research` 的 `asins` 参数被忽略 | 不能按 ASIN 批量取数 | 用 `asin_detail` 逐个取 |
+| `competitor_lookup` 的 `page`/`size` 被忽略 | 永远只返回 5 条 | 扩池用 `asin_competitor` + 类目 `product_research` |
 | `traffic_keyword` 混入无关词 | 实测壁挂衣架的词表里出现 "toilet caps" | 拿回来先按 R1 品类相关过滤，不直接进词库 |
-| `traffic_keyword` 词量差异极大 | 实测同类目 13 条 vs 270 条 | 先看 `total`，< 30 条只能当补充样本 |
+| `traffic_keyword` 词量差异极大 | 实测同类目 13 条 vs 1,724 条 | 先看 `total`，< 30 条当补充样本，> 50 条要翻页 |
 | `asin_competitor` 返回偏少 | 实测 size=8 只回 3 条 | 扩不满就用 `product_research` 按类目补，别指望它一个工具扩到 15 个 |
 | Amazon 自营/私牌 `units` 为 `null` | 按「月销 < 100 丢弃」会误杀 | null 不参与销量过滤，标 `DATA_MISSING` 保留 |
 | `product_research` 模糊匹配易跑偏 | 实测 `coat rack` 匹配到美甲 `top coat` | 用 `matchType: 3` 精准匹配 |
@@ -147,4 +155,6 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 
 ## 版本
 
-v3.1（2026-11-13）：按实测修正工具适用性（keyword_order 不可用、traffic_keyword 噪声与词量差异、units 为 null），补后台数据上传契约。
+- v3.0（2026-11-13）：拆成模块，四路方法独立成文件，输出按导图分「层级 + 优先级」。
+- v3.1（2026-11-13）：按实测修正工具适用性（keyword_order 不可用、traffic_keyword 噪声与词量差异、units 为 null），补后台数据上传契约。
+- v3.2（2026-11-13）：首个真实类目（海绵架）跑通后修正——分层规则去除「词数 ≥ 4 即长尾」的误判、大词门槛 P90→P75、补 asin_detail 不返回 bullets 等 5 条工具限制。
