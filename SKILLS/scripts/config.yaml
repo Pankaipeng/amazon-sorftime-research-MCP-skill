@@ -12,7 +12,7 @@ inputs:
   pool: 01-竞品ASIN库.csv
   b_title: 02-标题高频词.csv
   b_titles: 02b-竞品标题原文.csv  # 精确覆盖率的分母：竞品标题原文
-  c_listing: 03-Listing高频词_代理版.csv
+  c_listing: 03-Listing高频词.csv   # 真实五点词频（asin_detail 的 features 字段）
   d_autocomplete: 04-自动补全词表.csv
   competition_table: 07-竞争度底表.csv   # keyword,spr,monopoly_click_rate,title_density,products
   backend_table: 05-后台数据对标.csv     # 取 ABA搜索频率排名，做全站标尺的绝对层级
@@ -85,6 +85,9 @@ sample:
   exact_coverage: true          # 用标题原文算"完整包含"覆盖率，替代 n-gram 截断
   fold_plural: true             # 匹配覆盖率时把复数折回单数（sponges→sponge）
   min_words_in_keyword: 2       # 单词成分（sponge / sink / holder）不是搜索词，不入库
+  # 方法 C 的角色：support_only = 只给已发现的词补五点覆盖证据（默认，防灌库）
+  #                discover    = 允许五点词频单独发现新词（会带进大量非搜索词，慎用）
+  c_listing_mode: support_only
 
 # ---------------- 判断词表 ----------------
 
