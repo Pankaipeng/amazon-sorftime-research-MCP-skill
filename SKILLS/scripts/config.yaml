@@ -1,0 +1,214 @@
+# 关键词合并打分配置 —— 唯一真相源
+#
+# 换类目 / 换站点时只改这个文件，不要动 merge.py。
+# merge.py 里不允许出现任何硬编码的词或数字，全部从这里取。
+
+version: 1
+
+# 输入文件（相对项目目录）。缺哪个就在 trace 里显示 0 贡献，check.py 会报错。
+inputs:
+  search_table: 06-搜索量底表.csv     # keyword,searches —— 补量结果必须落成文件
+  a_traffic: 0A-竞品流量词.csv
+  pool: 01-竞品ASIN库.csv
+  b_title: 02-标题高频词.csv
+  b_titles: 02b-竞品标题原文.csv  # 精确覆盖率的分母：竞品标题原文
+  c_listing: 03-Listing高频词_代理版.csv
+  d_autocomplete: 04-自动补全词表.csv
+  competition_table: 07-竞争度底表.csv   # keyword,spr,monopoly_click_rate,title_density,products
+  backend_table: 05-后台数据对标.csv     # 取 ABA搜索频率排名，做全站标尺的绝对层级
+  backend_json: backend_raw.json      # niche + aba 两张后台表
+
+outputs:
+  library: keyword_library.csv
+  negatives: negative_words.txt
+  brands: brand_words.txt
+  trace: 00-五路合并追踪.csv
+
+# R = w1*R1 + w2*R2 + w3*R3，三项之和须为 1
+weights:
+  r1: 0.5
+  r2: 0.3
+  r3: 0.2
+
+r3:
+  # 覆盖率归一化：出现在 60% 竞品标题里就算行业共识，再多不加价
+  full_mark_coverage: 0.6
+  # 没有覆盖率数据时给中性分，不要给 0（那是"没测"，不是"没共识"）
+  default_when_missing: 0.5
+
+# 层级 = 这个词有多宽，与相关性无关
+# mode: volume_absolute（绝对锚，推荐）| percentile（分位，词库变动大时会漂）
+tiers:
+  mode: head_relative
+  # 美国站月搜索量绝对锚：≥10万 大词 / 3万-10万 中词 / 5千-3万 小词 / <5千 长尾
+  # 换站点或换类目时由运营按行情调，不要改代码
+  # head_relative：以本类目最大词为 100%，按比例切档——类目大小自动适配
+  head_ratios: [0.30, 0.10, 0.03]
+  # volume_absolute：固定绝对锚（跨类目口径统一，但小类目会被压成全是长尾）
+  volume_bounds: [100000, 30000, 5000]
+  # 分位兜底（mode=percentile 时用）
+  percentile_fallback: [80, 50, 20]
+  # 全站标尺（ABA 排名，跨类目可比，借鉴自 amazon-keyword-strategy）
+  aba_bounds: [10000, 100000, 500000]   # ≤1万 大 / 1-10万 中 / 10-50万 小 / >50万 长尾
+
+# 竞争度：多指标归一后等权平均，0-100 分
+competition:
+  indicators: [monopoly_click_rate, spr, title_density, products]
+  level_rule: mean_with_override  # 均分切档 + 单项极端值覆盖（另可选 any_high）
+  override_threshold: 0.95        # 单项百分位 ≥0.95 直接判高
+  any_high_threshold: 0.8         # level_rule=any_high 时用
+  all_low_threshold: 0.3          # 所有项 ≤0.3 视为低
+  level_bounds: [70, 40]          # level_rule=mean 时才用
+
+# 优先级 = 这个词有多值得做，按 W 降序名额制
+priority:
+  p0_slots: 3          # 标题主词。运营按类目行情调，不写死在规则里
+  p1_slots: 27         # P0 之后取 27 个进 P1（五点 / A+）
+  # 搜索转化率默认只展示、不参与排序。设为 true 则低于阈值的词踢出 P0
+  use_conversion_veto: false
+  conversion_veto_below: 0.02
+
+est:
+  # EST = 只有自动补全位次、查不到搜索量的词
+  max_ratio: 0.40      # 超过这个比例要在报告里说明原因
+  # 本案例 47%（111/235 只有自动补全位次、卖家精灵查不到搜索量）。
+  # 原因：方法 D 拿到的是真实存在但没有搜索量估算的长尾，全部限在 P2，不进 P0/P1。
+  # 已知情并接受，故置 true；换类目时若 EST 仍超限，先看是不是 D 采集过宽。
+  ratio_acknowledged: true
+  highest_tier: P2     # EST 词最高档（不与实测词混排）
+  weight_scale: 10     # W = ac_score * R * scale
+
+sample:
+  # 竞品标题覆盖率至少要这么多个 ASIN 才算数，少于这个样本不判覆盖率
+  min_asins_for_coverage: 15
+  min_asin_hits_in_title: 3     # 一个词至少出现在 3 个标题里才算"共识"
+  exact_coverage: true          # 用标题原文算"完整包含"覆盖率，替代 n-gram 截断
+  fold_plural: true             # 匹配覆盖率时把复数折回单数（sponges→sponge）
+  min_words_in_keyword: 2       # 单词成分（sponge / sink / holder）不是搜索词，不入库
+
+# ---------------- 判断词表 ----------------
+
+# R1 = 0：与本品不是同一类东西 → NEG
+r1_zero:
+  - kitchen sink
+  - suction cup
+  - suction cups
+  - adhesive strips
+  - smiley face
+  - 304 stainless steel
+  - stainless steel
+  - kitchen decor
+  - apartment essentials
+  - cleaning caddy
+  - kitchen scrub holder
+  - bar of soap holder
+  - soap dish for bathroom sink
+  - soap holder bathroom
+  - bath soap holder
+  # 托盘类：是"接水盘"不是"挂架"，属异类商品，不是本品
+  - sink tray
+  - kitchen sink tray
+  - tray for kitchen sink
+  - kitchen sink soap tray
+  - soap tray for kitchen sink
+  # 2026-11-13 运营判定：faucet rack 不算相关（水龙头挂架是另一类商品）
+  - faucet rack
+
+# R1 = 0.5：相关但不是本品（邻近品类）
+r1_half:
+  - sink basket
+  - caddy organizer
+  - brush scrubber
+  - dish soap holder
+  - soap holder kitchen
+  - farmhouse sink accessories
+  - sink holder
+  - sink organizer
+  - kitchen sink accessories
+  - sink accessories
+  - bathroom sink accessories
+  - sponge holder for kitchen sink and soap
+  - soap and sponge holder for the kitchen sink
+  - rv kitchen essentials
+  - kitchen essentials
+
+# R2 = 0：材质 / 颜色 / 结构与本品冲突（本品为透明塑料）
+r2_conflict_material:
+  - stainless
+  - steel
+  - ceramic
+  - metal
+  - bamboo
+  - wood
+  - marble
+  - stone
+  - silicone
+  - magnetic
+  - brass
+  - bronze
+  - chrome
+  - black
+  - white
+  - gold
+  - silver
+  - pink
+  - blue
+  - teal
+  - grey
+  - gray
+  - nickel
+  - beige
+  - brown
+  - champagne
+  - soap dispenser
+
+# 本品品牌：词库里出现本品品牌词时按语义正常参评，绝不当竞品截流
+own_brand: nieifi
+
+# 竞品品牌词：单列 BRAND 层，不否定、不投广告、不进标题
+# 竞品池里的品牌会自动读入，这里只补池子外的相邻品牌
+brand_extra:
+  - scrub daddy
+  - scrub mommy
+
+# R1=0 但过于宽泛：否掉会误伤正常流量，只标观察，不写进否定清单
+no_neg:
+  - kitchen sink
+  - suction cup
+  - suction cups
+  - adhesive strips
+  - stainless steel
+  - 304 stainless
+  - smiley face
+  - kitchen decor
+  - apartment essentials
+
+# 词根映射（六分类：共性/属性/品牌/品类/受众/否定）
+# 这是「本次词库 token 分布」现场归纳的产物，不是预置品类词表——换类目重新生成一份
+word_root:
+  map_file: 07b-词根映射.csv
+
+# 形态判定（壁挂 / 台面）
+# 本技能暂不启用——形态需要看"这个词底下卖的是什么货"，属于商品属性分类的范畴，
+# 后续由独立的「属性分类」skill 产出标签，再回填到词库里。
+form:
+  enabled: false
+  wall:
+    - suction
+    - adhesive
+    - in sink
+    - inside sink
+    - wall
+    - hanging
+    - hang
+    - faucet
+    - mount
+  counter:
+    - countertop
+    - counter top
+    - counter
+    - tray
+    - freestanding
+    - free standing
+    - tabletop
+    - extendable
