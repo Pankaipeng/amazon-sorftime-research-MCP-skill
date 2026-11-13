@@ -117,6 +117,10 @@ def build_candidates(P, cfg):
         if c_mode == "discover":
             add(r["词/词组"], "C", cov_c=float(r["覆盖率"]))
 
+    for r in read_csv(os.path.join(P, cfg["inputs"]["d_autocomplete"])):
+        mark("D", r["联想词"])
+        add(r["联想词"], "D", ac=float(r["ac_score"] or 0))
+
     if c_mode != "discover":
         for k, cov in c_cov.items():
             if k in cand:
