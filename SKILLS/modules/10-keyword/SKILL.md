@@ -33,13 +33,13 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 |---|---|---|---|---|
 | **A** | 竞品 ASIN 反查 | 竞品真实出单词 + 流量词 | 有真实曝光信号 | 只覆盖已有竞品 |
 | **B** | 竞品标题词频 | 行业共识词 | 反映关键词取舍 | 只看到精选后的词 |
-| **C** | 竞品 Listing 词频 | 卖点表达词、痛点词 | 抓得到"买家语言" | 噪声多，MCP 常拿不到文本 |
+| **C** | 竞品 Listing 词频 | 卖点表达词、痛点词 | 抓得到"买家语言" | 要取 `features` 字段（不是 bullets）；多为句子成分，只作证据和素材 |
 | **D** | 前台自动补全 | 当下真实搜索词、长尾 | 反映即时搜索行为 | 无搜索量，每次只 10 条 |
 | **E** | 后台报表（用户上传：商机探测器 + ABA） | 真实排名、搜索转化率、趋势 | 唯一带真实转化率 | 只有用户能导出 |
 
 **A 扩池、B/C 提取共识、D 补长尾、E 验证转化。** 五路互相校验，不互相替代。
 
-> **实测提醒（2026-11-13）**：`asin_detail` 不返回 `bullets` / `description`，方法 C 实际跑不起来。遇到这种情况就只跑方法 B，并在报告里写明「方法 C 未执行」，不要拿标题词频冒充 Listing 词频。
+> **实测提醒（2026-11-13 两次修正）**：五点在 `asin_detail` 里叫 **`features`**（字符串数组），不叫 `bullets` / `bulletPoints` / `featureBullets`——按后者取名一律返回 null，会误判成"接口不给五点"。实测 30 个壁挂竞品 30/30 都取得到，共 164 条。**`description` 仍然拿不到（null）**，所以方法 C 只做五点，不做描述。详见 `methods/03-listing词频.md`。
 
 详细方法见：
 
@@ -58,8 +58,8 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 ```
 0. 读 00-input，确认三类 ASIN + 事实卡齐全
 1. 方法 A：扩池。三步都要做——asin_competitor 扩一层 + 类目 product_research（variation:"Y"）销量 Top + 按形态过滤剔掉台面竞品
-2. 批量拉 asin_detail，落 products.json
-3. 方法 B/C：跑 freq.py --strip-brands，出标题词频 + Listing 词频
+2. 批量拉 asin_detail，落 products.json（**要 `features` 字段，五点在这里**）
+3. 方法 B/C：跑 freq.py --strip-brands，出标题词频 + 五点词频；三点词另跑正则出 `03b`
 4. 方法 D：选 1-3 个种子词，跑 ac.py 生成请求清单，逐个 web_fetch
 5. 方法 E：有后台报表就做三口径对账，补搜索转化率与趋势
 6. keyword_miner 批量补搜索量/SPR/标题密度/PPC，**落成 `06-搜索量底表.csv`**（不许写死在代码里）
@@ -85,7 +85,8 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 | `01b-排除的台面竞品.csv` | 按形态过滤掉、未入池的竞品，留档备查 |
 | `02-标题高频词.csv` | 方法 B 词频，已剔品牌 |
 | `02b-竞品标题原文.csv` | **30 条竞品标题整条原文**——R3 覆盖率的分母，不能省（见下） |
-| `03-Listing高频词_代理版.csv` | 方法 C 词频；拿不到文本时标代理数据 |
+| `03-Listing高频词.csv` | 方法 C 五点词频（`in_bullets` 分列），给已发现的词补证据 |
+| `03b-三类词抽取.csv` | 痛点 / 证据 / 限制 三类说法 + 覆盖数，直接喂五点与 QA |
 | `04-自动补全词表.csv` | 方法 D 全部联想词 + 词类标注 |
 | `05-后台数据对标.csv` | 方法 E 三口径对账表 |
 | `06-搜索量底表.csv` | 补量结果落盘（keyword, searches, source），**只存一期**，脚本只读这个文件 |
@@ -193,7 +194,9 @@ python skills/scripts/check.py <项目目录>
 | 限制 | 影响 | 处理 |
 |---|---|---|
 | `keyword_order` 实测返回 0 条 | 竞品转化分层拿不到 | 不用它。改用 `traffic_keyword` 的 `conversionKeywordType`，为空就标 `DATA_MISSING`，靠后台报表补 |
-| `asin_detail` 不返回 bullets / description | 方法 C 跑不了 | 只跑方法 B，报告里写明方法 C 未执行 |
+| `asin_detail` 的 `description` 返回 null | 描述拿不到 | 只做五点，不做描述；五点在 **`features`** 字段里，能拿到（实测 30/30） |
+| `asin_detail` 的五点字段叫 `features` | 按 `bullets` / `featureBullets` 取名会一律 null，误判成"接口不给五点" | 取字段必须写 `features`；拿到后按句子存进 `bullets` 数组 |
+| 五点词频会灌满非搜索词 | 285 条里只有 23 条是搜索词（其余是 `please` / `smooth surface` 这类句子成分） | `c_listing_mode: support_only`（默认）：只补证据，不单独发现词 |
 | **`asin_competitor` 会漏掉类目第一** | 实测海绵架类目第一的 Cisily 完全没被扩出来，直接导致差异化结论错误 | **扩池必多一步：按类目 nodeIdPath 拉 `product_research`，按销量降序** |
 | **`product_research` 默认带变体，会把样本吃干** | 实测 Cisily 30 个变体占满销量 Top 30，"扩了 30 个"实际只等效 1 个新竞品；9 个 ASIN 的词频把 `smiley face` 误判成独有卖点 | **必传 `variation: "Y"`，并做品牌去重（同品牌 ≤ 2 个）**；样本 < 15 个不判覆盖率 |
 | **类目节点里混着不同形态的竞品** | 台面/托盘款的 `tray`、`countertop` 会把壁挂件的词频带偏，混着算出来的差异化是假的 | 扩池时按形态过滤，台面款排除；词频只用同形态样本 |
