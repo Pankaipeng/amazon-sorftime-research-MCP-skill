@@ -106,13 +106,22 @@ def build_candidates(P, cfg):
             mark("B", r["word"])
             add(r["word"], "B", cov_b=float(r["coverage"]))
 
+    # 方法 C（五点词频）默认只给其他路已抓到的词补证据，不单独发现新词。
+    # 理由：五点里大量词不是搜索词（please / allows / smooth surface），
+    # 直接入库会把词库灌满 NODATA。要让它发现词就设 c_listing_mode: discover。
+    c_mode = cfg["sample"].get("c_listing_mode", "support_only")
+    c_cov = {}
     for r in read_csv(os.path.join(P, cfg["inputs"]["c_listing"])):
         mark("C", r["词/词组"])
-        add(r["词/词组"], "C", cov_c=float(r["覆盖率"]))
+        c_cov[norm(r["词/词组"])] = float(r["覆盖率"])
+        if c_mode == "discover":
+            add(r["词/词组"], "C", cov_c=float(r["覆盖率"]))
 
-    for r in read_csv(os.path.join(P, cfg["inputs"]["d_autocomplete"])):
-        mark("D", r["联想词"])
-        add(r["联想词"], "D", ac=float(r["ac_score"] or 0))
+    if c_mode != "discover":
+        for k, cov in c_cov.items():
+            if k in cand:
+                cand[k]["src"].add("C")
+                cand[k]["cov_c"] = cov
 
     bj = os.path.join(P, cfg["inputs"]["backend_json"])
     if os.path.exists(bj):
