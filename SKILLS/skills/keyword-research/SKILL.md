@@ -1,439 +1,379 @@
 ---
 name: "keyword-research"
-description: "亚马逊关键词深度调研与智能分类分析。基于 Sorftime MCP 数据采集 2000+ 关键词，通过 LLM Agent 按 8 维度智能分类（否定词、品牌词、材质词、场景词、属性词、功能词、核心词、其他），生成 Markdown 报告、CSV 词库和 HTML 仪表板。触发方式：/keyword-research {ASIN} {SITE}"
+description: "亚马逊关键词调研 v2：四路采集（竞品ASIN库反查 / 竞品标题词频 / 竞品Listing词频 / 前台自动补全）→ 合并补齐指标 → 权重打分 → 输出可直接喂给文案的交接单。用户提供 /keyword-research {ASIN} {SITE}，或说“调研这个词”“挖竞品词”“给我词库做标题”时触发。"
 ---
 
 > **本机适配说明（重要）**
-> 本 skill 原文基于 **Sorftime MCP** 编写。本机只接入卖家精灵 MCP（`mcp__ss_mcp__`）。
-> 执行前请读 `../amazon-base/MCP映射表.md`，把文中所有 Sorftime 工具名替换为卖家精灵等价工具。
+> 本 skill 原本基于 **Sorftime MCP** 编写。本机只接入卖家精灵 MCP（`mcp__ss_mcp__`）。
+> 文中所有数据工具已改为卖家精灵等价工具；Sorftime 专有接口见 `../amazon-base/MCP映射表.md`。
 > 口径差异（搜索量样本、字段名）必须在报告中注明，不要混用两套数据。
 
+# 关键词调研 v2：四路采集 → 权重打分 → 直接喂给文案
 
-# 关键词调研分析 Skill
+## 0. 这个版本解决什么问题
 
-## 快速参考
+旧版只在「一个 ASIN 的流量词」里打转，产出是"一堆词"，没法回答"哪个该放标题第一位"。
 
-| 步骤 | Sorftime API | 用途 | 数据量 |
-|------|--------------|------|--------|
-| 1 | `product_traffic_terms` | 产品流量关键词 | 50-200 |
-| 2 | `competitor_product_keywords` | 竞品布局关键词 | 100-500 |
-| 3 | `category_keywords` | 类目核心关键词 | 100-500 |
-| 4 | `keyword_related_words` | 长尾词扩展 | 1000-2000 |
-| 5 | **LLM Agent** | 8 维智能分类 | 全量 |
+v2 改成**四路采集 + 统一打分**，输出是一张**按权重排序的词表**和一份**交接单**，文案环节直接照着填，不需要二次判断。
 
-**一键执行**:
-```bash
-# 在 Claude Code 环境中运行（自动触发 LLM 分类）
-python .claude/skills/keyword-research/scripts/workflow.py B07PWTJ4H1 US --claude-code-env
-```
-
-**其他选项**:
-```bash
-# 跳过分类，仅采集数据（后续可手动LLM分类）
-python .claude/skills/keyword-research/scripts/workflow.py B07PWTJ4H1 US --skip-classification
-
-# 禁用LLM分类，使用规则分类
-python .claude/skills/keyword-research/scripts/workflow.py B07PWTJ4H1 US --disable-llm-classification
-```
-
-## 触发条件
-
-当用户使用以下方式请求时启动此分析流程：
-- **命令**: `/keyword-research {ASIN} {站点}`
-- **示例**: `/keyword-research B07PWTJ4H1 US`
-- **自然语言**: "分析这个产品的关键词词库"、"调研 B07PWTJ4H1 的关键词"
+一句话：**词库不是词表，是排好序的投放清单。**
 
 ---
 
-## 角色设定
+## 1. 输入
 
-你是一位拥有 10 年经验的"亚马逊 PPC 广告专家"和"关键词策略分析师"。你精通亚马逊 A9 算法和关键词布局策略，能够从海量关键词中识别出高价值词和需要排除的词。
+| 输入 | 必填 | 说明 |
+|---|---|---|
+| 竞品 ASIN | ✅ 1-3 个 | 这些是**锚点**，权重最高（L0，×3） |
+| 站点 | ✅ | US / UK / DE / FR / IT / ES / JP / CA |
+| 自家 ASIN | 可选 | 有就一起跑，用来对比"我有它没有"的词 |
+| 核心卖点 | 可选 | 供应链给的差异化点，用来算相关性 R2 |
+| 类目 nodeIdPath | 可选 | 没有就用竞品 ASIN 反推 |
 
----
-
-## 数据采集策略：方案 A（基于 ASIN 的深度分析）
-
-```
-输入: ASIN + 站点 + (可选) 产品信息
-  ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Step 1: 基础数据采集                                         │
-├─────────────────────────────────────────────────────────────┤
-│ 1. product_traffic_terms      → 产品流量词 (50-200个)       │
-│ 2. competitor_product_keywords → 竞品布局词 (100-500个)     │
-│ 3. category_keywords           → 类目核心词 (100-500个)      │
-└─────────────────────────────────────────────────────────────┘
-  ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Step 2: 长尾词扩展                                          │
-├─────────────────────────────────────────────────────────────┤
-│ 从基础词中选择 Top 30 核心词                                 │
-│ → 对每个调用 keyword_related_words (50-100个延伸词)         │
-│ → 预计获取 1000-2000 个长尾词                               │
-└─────────────────────────────────────────────────────────────┘
-  ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Step 3: 数据清洗                                            │
-├─────────────────────────────────────────────────────────────┤
-│ 1. 去重（归一化：小写、去除特殊字符）                        │
-│ 2. 过滤无效词（过短、非英文、乱码）                          │
-│ 3. 合并搜索量/CPC 等指标                                    │
-└─────────────────────────────────────────────────────────────┘
-  ↓
-最终词库: 2000+ 关键词
-```
+缺竞品 ASIN 时，先问用户要，或从自家 ASIN 的关联商品里找 3 个。**不要凭空生成 ASIN。**
 
 ---
 
-## 关键词分类：8 维智能分类模型
-
-### 分类维度
-
-| 维度 | 标识 | 识别规则 | 应用策略 |
-|------|------|----------|----------|
-| **否定/敏感词** | NEGATIVE | 与产品不相关、描述不符的词 | 直接添加为否定关键词 |
-| **品牌词** | BRAND | 竞品品牌名称 | 竞品打法或否定 |
-| **材质词** | MATERIAL | 产品材质相关词 | 精准词组匹配 |
-| **场景词** | SCENARIO | 使用场景/位置词 | 按场景拆分广告组 |
-| **属性修饰词** | ATTRIBUTE | 产品属性/特性词 | 长尾精准匹配 |
-| **功能词** | FUNCTION | 产品功能相关词 | 广泛匹配扩流 |
-| **核心产品词** | CORE | 产品核心名称 | 大词投放占领坑位 |
-| **其他** | OTHER | 未分类、拼写错误、其他语言 | 补充埋词 |
-
-### 分类识别示例（以 Coat Rack 为例）
+## 2. 总流程
 
 ```
-产品信息: Coat Rack Wall Mount, Wood, 5 Hooks, Entryway
-
-否定词: freestanding, over door, floor, tree, shoe
-品牌词: umbra, simplehuman, mDesign, household essentials
-材质词: wood, wooden, metal, aluminum, bamboo
-场景词: entryway, bathroom, mudroom, garage, bedroom
-属性词: wall mount, heavy duty, rustic, vintage, expandable, 5 hook
-功能词: hanging, storage, organizer, display
-核心词: coat rack, hook, hanger, hat rack, towel rack
-其他: coatrac (拼写错误), perchero (西语)
+① 竞品库反查 ──┐
+② 标题词频   ──┤
+③ Listing词频 ──┼→ 合并去重 → 补指标(keyword_miner) → 权重打分 → 输出三件套
+④ 自动补全   ──┘
 ```
+
+四路是**并集关系**，不是替代关系。任何一路缺数据就标 `DATA_MISSING`，不要用其它路的词硬凑。
 
 ---
 
-## 执行流程
+## 3. 方法一：竞品 ASIN 库反查
 
-### 阶段一：数据采集
+**目的**：以用户给的 ASIN 为锚点，向外扩出一个竞品池。池子越大，后面词频越可靠。
 
-#### Step 1.1: 获取产品流量词
+### 步骤
 
-```bash
-curl -s -X POST "https://mcp.sorftime.com?key={API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"product_traffic_terms","arguments":{"amzSite":"US","asin":"ASIN"}}}'
+```python
+# L0：用户提供的 ASIN，权重 3
+anchors = [用户给的 ASIN]
+
+# L1：锚点的直接竞品
+for a in anchors:
+    mcp__ss_mcp__asin_competitor({"marketplace":"US","asin":a,"size":20})
+
+# L2：L1 里销量最高的 3 个，再往下扩一层（只扩一层，别递归）
+for a in top3_of_L1:
+    mcp__ss_mcp__asin_competitor({"marketplace":"US","asin":a,"size":20})
 ```
 
-**返回数据**: 关键词列表，包含搜索量、CPC 等指标
+**筛选条件**（进池子前先过滤，避免噪声）：
 
-#### Step 1.2: 获取竞品布局词
+- 同站点、同品类（类目路径前 3 段一致）
+- 月销 ≥ 100（`units` 字段）
+- 排除：明显不同形态的（如本品是 wall mount，竞品是 freestanding）→ 但**保留**，标记为"形态差异"，用于后面算差异化
+- 排除：品牌自有变体（同品牌不同 ASIN）→ 单独归组，不参与词频
 
-```bash
-curl -s -X POST "https://mcp.sorftime.com?key={API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"competitor_product_keywords","arguments":{"amzSite":"US","asin":"ASIN"}}}'
-```
+### 输出：竞品池表
 
-**返回数据**: 竞品在各关键词下的排名位置
+| ASIN | 品牌 | 层级 | 月销 | 价格 | 评分 | 评分数 | 形态 | 备注 |
+|---|---|---|---|---|---|---|---|---|
 
-#### Step 1.3: 获取类目核心词
+层级：L0 = 用户提供（权重 3），L1 = 一等关联（权重 1），L2 = 二等关联（权重 0.5）。
 
-```bash
-# 首先获取产品详情以获取 NodeID
-curl -s -X POST "https://mcp.sorftime.com?key={API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"product_detail","arguments":{"amzSite":"US","asin":"ASIN"}}}'
-
-# 然后获取类目关键词
-curl -s -X POST "https://mcp.sorftime.com?key={API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"category_keywords","arguments":{"amzSite":"US","nodeId":"NODE_ID"}}}'
-```
-
-#### Step 1.4: 长尾词扩展
-
-从基础词中选择 Top 30 核心，对每个调用：
-
-```bash
-curl -s -X POST "https://mcp.sorftime.com?key={API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":N,"method":"tools/call","params":{"name":"keyword_related_words","arguments":{"amzSite":"US","searchKeyword":"KEYWORD"}}}'
-```
+**池子规模建议 8-15 个**。少于 5 个，词频不可信，要在报告里注明样本不足。
 
 ---
 
-### 阶段二：LLM 智能分类
+## 4. 方法二：竞品标题词频
 
-#### 分类提示词模板
+**目的**：标题是竞品最浓缩的关键词选择，词频 = 行业共识。
 
-```
-你是一位亚马逊关键词分类专家。请根据以下产品信息，将关键词列表按 8 个维度分类。
+### 步骤
 
-【产品信息】
-产品名称: {product_name}
-材质: {material}
-核心属性: {features}
-使用场景: {use_cases}
-否定特征: {negative_features}
-
-【分类维度】
-1. NEGATIVE: 不相关的词，需直接否定
-2. BRAND: 竞品品牌名称
-3. MATERIAL: 材质相关词 (wood, metal, aluminum...)
-4. SCENARIO: 使用场景词 (entryway, bathroom...)
-5. ATTRIBUTE: 属性修饰词 (wall mount, heavy duty...)
-6. FUNCTION: 功能词 (hanging, storage...)
-7. CORE: 核心产品词 (coat rack, hook...)
-8. OTHER: 其他（拼写错误、其他语言等）
-
-【待分类关键词】
-{keywords_json}
-
-【输出格式】
-请以 JSON 格式输出：
-{
-  "NEGATIVE": ["word1", "word2", ...],
-  "BRAND": [...],
-  ...
-}
-```
-
-#### 批量处理策略
-
-- **批次大小**: 每批 150 个关键词
-- **并行处理**: 可并发多个批次
-- **结果合并**: 统计各分类数量，汇总关键词
-
----
-
-### 阶段三：报告生成
-
-#### 输出文件结构
-
-```
-keyword-reports/
-└── {ASIN}_{Site}_{YYYYMMDD}/
-    ├── report.md                    # Markdown 分析报告
-    ├── keywords.csv                 # 完整关键词词库（分类后）
-    ├── negative_words.txt           # 否定词清单
-    ├── brand_words.txt              # 品牌词清单
-    ├── categorized_summary.json     # 分类统计
-    └── dashboard.html               # HTML 可视化仪表板
-```
-
-#### keywords.csv 格式
-
-```csv
-keyword,category,search_volume,cpc,competition,application,relevance_score
-coat rack,CORE,54000,1.85,high,广泛匹配,1.00
-wooden coat rack,MATERIAL,12000,1.25,medium,精准匹配,0.95
-freestanding coat rack,NEGATIVE,4500,0.85,low,直接否定,0.00
-...
-```
-
----
-
-## 产品信息支持（可选）
-
-为提高分类准确性，支持用户提供产品信息：
-
-### 输入方式
-
-**方式 1**: 命令行参数
-```bash
-python workflow.py B07PWTJ4H1 US --product-info product.json
-```
-
-**方式 2**: 交互式收集
-```bash
-请输入产品核心属性（用逗号分隔）:
-> Wall Mount, 5 Hooks, 16.5 inches, Heavy Duty
-```
-
-### 产品信息 JSON 格式
+1. 对池子里每个 ASIN 调 `mcp__ss_mcp__asin_detail`，拿 `title`
+2. 汇总成 JSON：
 
 ```json
-{
-  "product_name": "Coat Rack Wall Mount",
-  "material": "Wood",
-  "features": ["Wall Mount", "5 Hooks", "16.5 inches", "Heavy Duty"],
-  "use_cases": ["Entryway", "Bathroom", "Mudroom", "Garage"],
-  "negative_features": ["Freestanding", "Over Door", "Floor"]
-}
+[
+  {"asin":"B0XXXX","level":0,"title":"..."},
+  {"asin":"B0YYYY","level":1,"title":"..."}
+]
 ```
 
----
-
-## Sorftime API 参考
-
-### 关键词相关接口
-
-| 接口 | 调用消耗 | 参数 | 返回 |
-|------|----------|------|------|
-| `product_traffic_terms` | 1 | asin, site | 产品流量词 |
-| `competitor_product_keywords` | 1 | asin, site | 竞品布局词 |
-| `category_keywords` | 1 | nodeId, site | 类目核心词 |
-| `keyword_related_words` | 1 | searchKeyword, site | 延伸长尾词 |
-| `keyword_detail` | 1 | keyword, site | 关键词详情 |
-| `product_detail` | 1 | asin, site | 产品详情 |
-
-### 调用格式
+3. 跑词频脚本：
 
 ```bash
-curl -s -X POST "https://mcp.sorftime.com?key={API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":N,"method":"tools/call","params":{"name":"TOOL_NAME","arguments":{"amzSite":"US","KEY":"VALUE"}}}'
+python scripts/freq.py products.json --weight-l0 3 --weight-other 1 --min-asin 2 --top 100
+```
+
+### 权重规则（关键）
+
+| 来源 | 权重 |
+|---|---|
+| 用户提供的 ASIN（L0） | **×3** |
+| 其它竞品（L1） | ×1 |
+| 二等关联（L2） | ×0.5 |
+
+即：**用户给的 ASIN 说三遍，别人说一遍。** 这样既尊重用户判断，又不至于被单个 ASIN 带偏。
+
+脚本内部还会叠加：
+- 字段权重：标题 ×3、五点 ×2、描述 ×1
+- IDF：覆盖越广的词越像行业通用词，权重适度回收
+
+### 输出
+
+`freq.csv`，列：`word / weighted_score / asin_count / coverage / l0_asin_count / in_title / in_bullets / in_description`
+
+**怎么读**：
+- `l0_asin_count ≥ 1` 且 `coverage` 高 → 核心词，必进标题
+- `l0_asin_count = 0` 但 `coverage` 高 → 行业通用词，进 Highlights 或五点
+- `coverage < 0.3` 且 `l0_asin_count ≥ 1` → **差异化词**，这是 Highlights 的料（见第 8 节）
+
+---
+
+## 5. 方法三：竞品 Listing 词频
+
+**目的**：标题只有 75 字符，装不下竞品真实的表达方式。五点 + 描述里藏着"买家语言"。
+
+### 步骤
+
+同样用 `asin_detail`，但这次取 `bullets`（五点）和 `description`：
+
+```json
+[
+  {"asin":"B0XXXX","level":0,
+   "title":"...",
+   "bullets":["...","..."],
+   "description":"..."}
+]
+```
+
+跑同一个脚本，字段权重会自动生效（标题 3 / 五点 2 / 描述 1）。
+
+### 与标题词频的区别（重要）
+
+| | 标题词频 | Listing 词频 |
+|---|---|---|
+| 反映 | 竞品的**关键词取舍** | 竞品的**卖点表达** |
+| 高频词偏向 | 品类词、属性词 | 痛点词、场景词、证据词 |
+| 主要用途 | 标题、Highlights | 五点、A+、QA |
+
+**只看标题会漏掉一半**：一个竞品可能标题里写 "Heavy Duty"，五点里才说 "holds up to 30 lbs"——后者才是买家真正搜的。
+
+---
+
+## 6. 方法四：前台自动补全
+
+**目的**：拿到真实买家正在输入的词，尤其是长尾和问题型搜索。这是唯一能反映"当下搜索行为"的免费数据源。
+
+### 接口
+
+```
+https://completion.amazon.com/api/2017/suggestions?mid={市场ID}&alias=aps&prefix={前缀}
+```
+
+用 `web_fetch` 调用（**bash 里没有外网，只能用 web_fetch**）。
+
+### 市场 ID
+
+| 站点 | mid |
+|---|---|
+| US | ATVPDKIKX0DER |
+| UK | A1F83G8C2ARO7P |
+| DE | A1PA6795UKMFR9 |
+| FR | A13V1IB3VIYZZH |
+| IT | APJ6JRA9NG5V4 |
+| ES | A1RKKUPIHCS9HS |
+| JP | A1VC38T7YXB528 |
+
+CA / AU / IN / MX 的 mid 需实测确认后再补进本表，未确认前不要猜。
+
+### 前缀策略（每次只回 10 条，所以要组合）
+
+对**核心种子词**（取方法二/三的 Top 3-5 个词）分别跑：
+
+| 前缀类型 | 示例 | 捕获什么 |
+|---|---|---|
+| 纯种子 | `coat rack` | 主干长尾 |
+| best + 种子 | `best coat rack` | 比价/决策型 |
+| 种子 + for | `coat rack for` | 场景/人群型 |
+| 种子 + 字母 | `coat rack w` / `coat rack s` | 补充长尾 |
+
+**调用预算**：单次调研建议 8-15 次 `web_fetch`。优先跑：3 个种子 × (纯种子 + best + for) = 9 次。不够再补字母后缀。
+
+### 结果处理
+
+- 记录**返回顺序**：位置越靠前 = 搜索热度越高，这是免费的排序信号
+- 去重（跨前缀会有重复）
+- 记录来源前缀，便于回溯
+
+输出表：
+
+| 联想词 | 来源前缀 | 位次 | 备注 |
+|---|---|---|---|
+
+### 局限（必须在报告里写）
+
+- 只有 10 条/次，覆盖有限
+- 不返回搜索量，只能当"存在性 + 相对热度"证据
+- 联想词含竞品品牌词时，单独归到 BRAND，不当机会词
+
+---
+
+## 7. 合并、补指标、打分
+
+### 7.1 合并去重
+
+四路结果合并成一张总表，`keyword` 归一化后去重（小写、去标点、统一空格）。
+
+每个词记录**来源标记**：`A`=竞品反查、`B`=标题词频、`C`=Listing词频、`D`=自动补全。一个词可能多源，多源本身就是强信号。
+
+### 7.2 补指标
+
+把总表里**搜索量未知**的词，批量丢给 `keyword_miner` 精准查询：
+
+```python
+mcp__ss_mcp__keyword_miner({
+  "request": {
+    "marketplace": "US",
+    "keywordList": ["词1","词2","..."]   # 一次最多建议 50 个
+  }
+})
+```
+
+取回：`searches`（月搜索量）、`purchases`、`purchasesRate`、`spr`、`titleDensity`、`monopolyClickRate`、`bid`、`avgPrice`、`supplyDemandRatio`。
+
+**拿不到搜索量的词**（长尾、拼写变体、自动补全独有词）标 `EST`，不要编数字。
+
+### 7.3 相关性 R（0-1）
+
+| 分量 | 权重 | 判定 |
+|---|---|---|
+| R1 品类相关 | 0.5 | 1 = 直接指向本品品类；0.5 = 相关品类；0 = 不相关 |
+| R2 属性匹配 | 0.3 | 1 = 属性与本品一致；0.5 = 部分一致；0 = **冲突**（如本品 wall mount，词是 freestanding） |
+| R3 市场共识 | 0.2 | = 竞品覆盖率 `coverage`（来自方法二/三） |
+
+`R = 0.5×R1 + 0.3×R2 + 0.2×R3`
+
+**R1=0 或 R2=0 的词，直接进否定清单，不参与打分。**
+
+### 7.4 权重分 W
+
+```
+W = 月搜索量 × R          （有搜索量）
+W = 词频权重 × R × 1000   （EST 词，用词频当代理，量级对齐到千级）
+```
+
+用乘积而不是加和：搜索量再大，相关性为 0 就是 0 分。
+
+### 7.5 分档
+
+| 档位 | 条件 | 去向 |
+|---|---|---|
+| **P0** | W 排名前 10 且 R ≥ 0.8 | 标题 / Highlights |
+| **P1** | W 排名 11-40 或 R 0.6-0.8 | 五点 / A+ |
+| **P2** | 其余 R ≥ 0.5 | ST / QA |
+| **NEG** | R1=0 或 R2=0 | 否定清单 |
+| **BRAND** | 竞品品牌词 | 单独列出，不进机会词 |
+
+---
+
+## 8. 输出：三件套
+
+### 8.1 `keyword_library.csv`（排序后的词表）
+
+```
+keyword, tier, W, R, searches, purchases, spr, title_density, monopoly_click_rate,
+bid, avg_price, sources, l0_hit, coverage, est_flag
+```
+
+按 W 降序。这就是主交付物。
+
+### 8.2 `negative_words.txt`
+
+一行一个，直接粘广告后台。
+
+### 8.3 `handoff.md`（交接单，给文案环节）
+
+这份是 v2 的核心产出，直接对应 `amazon-listing-builder` 的输入：
+
+```markdown
+## 交接单
+
+### 标题槽位
+| 槽位 | 候选词（按 W 降序） | 词数 | 备注 |
+|---|---|---|---|
+| 品牌 | — | — | 固定 |
+| 核心品类词 | coat rack, wall mounted coat rack | — | 必占 |
+| 差异化属性 | heavy duty, 5 hooks | — | 见差异化清单 |
+| 主场景 | entryway | — | 单一场景 |
+| 规格 | wood, 16 inch | — | 有空间才放 |
+
+### 差异化词（Highlights 用）
+| 词 | 本品有 | 竞品覆盖 | 差异强度 |
+|---|---|---|---|
+| solid wood | ✅ | 0.2 | 高 |
+| 5 hooks | ✅ | 0.3 | 中 |
+
+### 五点素材
+| 卖点 | 支撑词 | 搜索量合计 | 覆盖竞品数 |
+|---|---|---|---|
+
+### 否定词
+（见 negative_words.txt）
 ```
 
 ---
 
-## 支持的站点
+## 9. 工具映射（本机实际可用）
 
-**Amazon**: US, GB, DE, FR, IN, CA, JP, ES, IT, MX, AE, AU, BR, SA
+| 用途 | 工具 |
+|---|---|
+| 竞品扩池 | `mcp__ss_mcp__asin_competitor` / `traffic_listing` |
+| ASIN 详情（标题/五点/描述） | `mcp__ss_mcp__asin_detail` |
+| 自家流量词 | `mcp__ss_mcp__traffic_keyword` |
+| 竞品出单词 | `mcp__ss_mcp__keyword_order` |
+| 指标补齐 | `mcp__ss_mcp__keyword_miner`（`keywordList` 精准查询） |
+| 关键词趋势 | `mcp__ss_mcp__keyword_research_trends`（扁平参数） |
+| 前台联想 | `web_fetch` → `completion.amazon.com` |
+| 类目节点 | `mcp__ss_mcp__product_node` |
 
----
-
-## 注意事项
-
-1. **API Key 配置**: 自动从 `.mcp.json` 读取
-2. **数据去重**: 归一化处理（小写、去除特殊字符）
-3. **LLM 分类**: 批量处理，每批 150 个关键词
-4. **输出编码**: UTF-8，支持中文和特殊字符
-5. **报告命名**: `{ASIN}_{Site}_{YYYYMMDD}` 格式
-
----
-
-## 故障排查
-
-### 问题 1: API 返回 "未查询到对应产品"
-**原因**: ASIN 不存在于 Sorftime 数据库
-**解决**:
-1. 使用 `product_search` 验证 ASIN
-2. 检查站点是否正确
-
-### 问题 2: 分类结果不准确
-**原因**: 缺少产品信息上下文或使用了规则分类
-**解决**:
-1. 提供产品信息 JSON 文件
-2. 在 Claude Code 环境中运行以使用 LLM 分类
-3. 手动执行 LLM 分类后保存到 `categorized_result.json`
-
-### 问题 3: 长尾词扩展数量不足
-**原因**: 核心词选择不准确或 API 限流
-**解决**:
-1. 调整核心词选择策略，增加搜索量权重
-2. 降低 `--long-tail-limit` 数量避免 API 限流
-3. 使用 `--skip-long-tail` 跳过长尾扩展
-
-### 问题 4: 分类显示 "分类失败或未提供结果" 或 使用了规则分类
-**原因**: 在命令行环境中运行，没有触发 LLM 分类
-**解决**:
-1. 使用 `--claude-code-env` 参数强制启用 LLM 分类模式：
-   ```bash
-   python workflow.py B07PWTJ4H1 US --claude-code-env
-   ```
-2. 系统会输出分类提示词，复制提示词发送给 Claude 执行分类
-3. 将分类结果保存为 `categorized_result.json`
-4. 重新运行 workflow.py 会自动加载分类结果并重新生成报告
-
-### 问题 5: 如何手动进行 LLM 分类
-**场景**: 采集了数据但分类不准确
-**解决**:
-1. 查看输出目录中的 `classification_prompt.txt`
-2. 将提示词发送给 Claude 执行分类
-3. 将分类结果保存为 `categorized_result.json`
-4. 运行报告重新生成脚本
+**已知陷阱**：`keyword_research` 会忽略 keyword 参数，返回全局热词，不要用它做精准查询，用 `keyword_miner` 的 `keywordList`。
 
 ---
 
-## 参考文档
+## 10. 执行顺序（照抄即可）
 
-- [Sorftime API 文档](references/sorftime-keyword-api.md)
-- [分类规则说明](references/classification-rules.md)
-
----
-
-## 手动 LLM 分类流程
-
-如果规则分类结果不准确，可以手动执行 LLM 分类：
-
-### 步骤 1: 查看分类提示词
-```bash
-cat keyword-reports/{ASIN}_{Site}_{YYYYMMDD}/classification_prompt.txt
-```
-
-### 步骤 2: 将提示词发送给 Claude
-复制整个提示词内容，发送给 Claude 执行分类
-
-### 步骤 3: 保存分类结果
-将 Claude 返回的 JSON 保存到：
-```bash
-keyword-reports/{ASIN}_{Site}_{YYYYMMDD}/categorized_result.json
-```
-
-### 步骤 4: 重新生成报告
-
-`regenerate_reports.py` 支持多种使用方式：
-
-#### 方式 1: 从报告目录内运行（自动检测）
-```bash
-cd keyword-reports/{ASIN}_{Site}_{YYYYMMDD}/
-python ../../.claude/skills/keyword-research/scripts/regenerate_reports.py
-```
-
-#### 方式 2: 指定 ASIN 和站点
-```bash
-python .claude/skills/keyword-research/scripts/regenerate_reports.py --asin B0FG6QG8C8 --site US
-```
-
-#### 方式 3: 指定完整输出目录
-```bash
-python .claude/skills/keyword-research/scripts/regenerate_reports.py --dir "keyword-reports\B0FG6QG8C8_US_20260314"
-```
-
-#### 方式 4: 列出所有可用的报告目录
-```bash
-python .claude/skills/keyword-research/scripts/regenerate_reports.py --list
-```
+1. 确认输入，缺竞品 ASIN 先问
+2. 跑方法一，出竞品池（8-15 个），检查样本量
+3. 批量拉 `asin_detail`，落成 `products.json`
+4. 跑 `freq.py`，得标题 + Listing 词频
+5. 取 Top 3-5 种子，跑自动补全（8-15 次）
+6. 合并四路，去重，标来源
+7. `keyword_miner` 批量补指标
+8. 算 R → 算 W → 分档
+9. 输出三件套
+10. 把 `handoff.md` 交给 `amazon-listing-builder`
 
 ---
 
-## 版本更新记录
+## 附：8 维分类（广告分组用，可选）
 
-### v1.3 (2026-03-14)
-- ✅ **优化 regenerate_reports.py**: 移除硬编码 ASIN
-- ✅ **支持多种使用方式**:
-  - 从报告目录内运行（自动检测）
-  - 使用 `--asis` 和 `--site` 参数指定
-  - 使用 `--dir` 参数指定完整目录
-  - 使用 `--list` 列出所有可用报告
-- ✅ **改进错误提示**: 更友好的错误信息和帮助文档
+调研完成后如果要做广告结构，再按 8 维分类一次。它是**下游环节**，不影响词库排序。
 
-### v1.2 (2026-03-14)
-- ✅ 修复 LLM 分类触发问题
-- ✅ 添加 `--claude-code-env` 参数强制启用 LLM 分类
-- ✅ 改进环境检测逻辑
-- ✅ 在 Claude Code 环境中自动触发 LLM 分类
-- ✅ 分类完成后自动使用 LLM 结果重新生成报告
-
-### v1.1 (2026-03-14)
-- ✅ 添加 Claude Code 环境检测
-- ✅ 添加 `--skip-classification` 选项
-- ✅ 改进规则分类：扩展 IP 品牌词识别
-- ✅ 改进规则分类：添加主题属性词
-- ✅ 更新故障排查文档
-
-### v1.0 (2026-03-13)
-- 初始版本
-- 支持 Sorftime API 数据采集
-- 支持 8 维智能分类
-- 生成 Markdown/CSV/HTML 报告
+| 维度 | 应用策略 |
+|---|---|
+| NEGATIVE 否定/敏感 | 直接否定 |
+| BRAND 品牌 | 竞品打法或否定 |
+| MATERIAL 材质 | 精准词组 |
+| SCENARIO 场景 | 按场景拆广告组 |
+| ATTRIBUTE 属性 | 长尾精准 |
+| FUNCTION 功能 | 广泛匹配扩流 |
+| CORE 核心 | 大词占坑 |
+| OTHER | 补充埋词 |
 
 ---
 
-*本技能版本: v1.3 | 最后更新: 2026-03-14*
+## 版本
+
+v2.0（2026-11-13）：四路采集 + 权重打分 + 交接单。替代 v1.3 的单 ASIN 流量词方案。
