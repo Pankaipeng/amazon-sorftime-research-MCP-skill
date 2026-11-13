@@ -13,7 +13,7 @@ description: 亚马逊选品与关键词调研的底层技能库入口。当用�
 
 | 目录 | 内容 |
 |---|---|
-| `keyword-research` | 关键词调研 + 8 维分类 |
+| `keyword-research` | 关键词调研 v2：四路采集 + 权重打分 + 交接单 |
 | `sellersprite-amazon-research` | 43 工具全链路 + 10 工作流 + 16 战术卡 |
 | `amazon-analyse` | 单 Listing 全维度穿透 |
 | `category-selection` | 类目选品 + 五维评分 |
@@ -51,11 +51,12 @@ description: 亚马逊选品与关键词调研的底层技能库入口。当用�
 
 ## 三个最常用的执行入口
 
-**关键词调研（最常用）**
-1. 读 `keyword-research/SKILL.md` 拿 8 维分类模型和报告结构
-2. 数据采集按映射表换成：`traffic_keyword`（自家流量词）→ `traffic_listing` + `keyword_order`（竞品布局）→ `traffic_extend`（长尾扩展，Top 30 核心词各跑一次）→ `keyword_miner`（补搜索量/竞争度/SPR）
-3. 分类照 8 维：NEGATIVE / BRAND / MATERIAL / SCENARIO / ATTRIBUTE / FUNCTION / CORE / OTHER
-4. 输出：Markdown 报告 + CSV 词库 + 否定词清单
+**关键词调研（最常用，v2）**
+1. 读 `keyword-research/SKILL.md` 拿四路采集流程和打分公式
+2. 四路并集：`asin_competitor`（竞品扩池）→ `asin_detail` + `freq.py`（标题/五点词频）→ `web_fetch` 调 Amazon 自动补全（长尾）
+3. `keyword_miner` 的 `keywordList` 批量补搜索量/SPR/标题密度/PPC
+4. 算 R（相关性）→ 算 W（权重）→ 分 P0/P1/P2/NEG
+5. 输出：`keyword_library.csv` + `negative_words.txt` + `handoff.md`（交给文案环节）
 
 **单 ASIN 深度调研**
 读 `sellersprite-amazon-research/skill.md`，按它的综合工作流选子文档（`comprehensive/*.md`），数据走 `asin_detail` / `traffic_keyword` / `review` / `market_research`。
@@ -70,11 +71,13 @@ description: 亚马逊选品与关键词调研的底层技能库入口。当用�
 3. **口径不可混用。** 卖家精灵和 Sorftime 的搜索量来自不同样本，同一份报告里不要一半一半拼。
 4. **报告三件套**：Markdown 正文 + CSV 词库 + HTML/表格看板。词库要能直接导入广告后台。
 
-## 后续改造路径
+## 改造方式（2026-11-13 起）
 
-上游那 9 个 skill 目录是只读参照，不要就地改。要定制时，把某个 skill 目录复制一份到 `skills/<你的名字>/`，改完就是一个自建 skill，上游更新时还能 diff。
+**直接改 `vendor/` 里的文件**，不再另建自建层。理由：仓库已 fork 到自己账号，只服务一个用户，分层的收益抵不过维护成本。上游若更新，用 diff 手工挑。
 
-当前待改造项，按优先级：
-1. 关键词调研：把 8 维分类改成本类目实际用得到的维度，补上 `keyword_miner` 的 SPR / 标题密度字段
-2. 选品：把 16 张战术卡裁剪成真正跑得通的 5–8 张，每张绑定具体工具参数
-3. Listing：八步工作流里第 2 步「用户问题库」和第 8 步「QA 设计」是 Rufus/COSMO 时代最值钱的部分，值得单独抽出来
+当前改造进度：
+1. ✅ 关键词调研 v2：四路采集 + 权重打分 + `handoff.md` 交接单
+2. ✅ 文案排序规则：`amazon-listing-builder/reference/ranking-rules.md`（标题按 W、Highlights 按差异、五点按 M）
+3. ⬜ 用真实 ASIN 跑一轮，校准 R / W 的阈值
+4. ⬜ `review-analysis` 的痛点结论接进五点排序（M 公式里的 P 分量目前靠人工估）
+5. ⬜ 自动补全的 mid 表补齐 CA / AU / IN / MX
