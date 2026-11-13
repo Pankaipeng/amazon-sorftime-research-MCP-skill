@@ -1,83 +1,100 @@
 ---
 name: amazon-base-skills
-description: 亚马逊选品与关键词调研的底层技能库入口。当用户要做亚马逊选品分析、关键词调研与拓展、竞品拆解、类目市场分析、评论痛点分析、Listing 优化、广告关键词优化时使用。内含 9 个上游 skill 的完整方法论与脚本，并映射到已接入的卖家精灵 MCP（mcp__ss_mcp__）。用户说"/keyword-research"、"调研这个 ASIN"、"挖关键词"、"这个词值不值得做"、"分析这个类目"时触发。
+description: 亚马逊关键词调研与文案生成的技能库入口。分两层：modules/ 是本项目主线（输入契约、关键词调研、竞品分析、用户洞察、卖点提炼、文案生成、主图需求），vendor/ 是上游方法论与 MCP 工具参考。当用户要做关键词调研、竞品拆解、痛点分析、卖点提炼、Listing 文案时使用。用户说"/keyword-research"、"挖关键词"、"调研这个 ASIN"、"这个词值不值得做"、"写标题/五点"时触发。
 ---
 
-# 亚马逊底层技能库（amazon-base）
+# 亚马逊技能库（amazon-base）
 
-这是一层**上游方法论底座 + 本机 MCP 适配**。后续的自建 skills 应该从这里复制、改写，而不是从零写。
+## 结构
 
-## 里面有什么
+```
+skills/
+├── modules/          本项目主线，按思维导图分模块
+│   ├── _common/      输出规范、政策边界
+│   ├── 00-input/     竞品 asin 组、本品事实卡、数据回流
+│   ├── 10-keyword/   关键词调研  ← 已完成
+│   ├── 20-competitor/ 竞品分析
+│   ├── 30-insight/   用户洞察
+│   ├── 40-selling-point/ 卖点提炼
+│   ├── 50-copy/      文案生成
+│   └── 90-main-image/ 主图设计需求
+└── vendor/           上游方法论与工具参考（只读，别在这里改）
+    ├── sellersprite-amazon-research/  43 个 MCP 工具手册
+    ├── review-analysis/               6 维痛点框架
+    ├── amazon-listing-builder/        八步 Listing 工程 + 合规清单
+    └── amazon-analyse/                单 Listing 穿透框架
+```
 
-9 个上游 skill，各自一个目录：
+**改东西改 `modules/`，`vendor/` 只当参考资料看。**
 
-| 目录 | 内容 |
-|---|---|
-| `keyword-research` | 关键词调研 v2：四路采集 + 权重打分 + 交接单 |
-| `sellersprite-amazon-research` | 43 工具全链路 + 10 工作流 + 16 战术卡 |
-| `amazon-analyse` | 单 Listing 全维度穿透 |
-| `category-selection` | 类目选品 + 五维评分 |
-| `product-research` | 选品深度调研 |
-| `review-analysis` | 评论 6 维痛点 |
-| `amazon-listing-builder` | 八步 Listing 工程 |
-| `sif-amazon-research` | 需 Sif MCP，当前不可用 |
-| `xiyou-insight` | 需西柚 MCP，当前不可用 |
+## 主链路
 
-两处存放位置，内容一致：
-- 本机工作区：`skills/vendor/<目录>/`
-- GitHub 仓库：`SKILLS/skills/<目录>/`
+```
+00-input（竞品组 + 事实卡）
+    ↓
+10-keyword（四路采集 → 词库 + 层级 + 优先级）
+    ↓
+20-competitor（竞品怎么打）  ┐
+30-insight（用户要什么）      ├→ 40-selling-point（卖点 + 权重）
+                              ┘
+    ↓
+50-copy（标题/亮点/五点/ST）
+    ↓
+90-main-image（主图 brief）
+```
 
-本 skill 自己（路由层 + 映射表）在本机是 `skills/amazon-base/`，仓库里是 `SKILLS/amazon-base/`。
-
-## 使用前必读
-
-**本机只有卖家精灵 MCP（`mcp__ss_mcp__`）。** 调用任何 vendor 下的 skill 之前，先读 `amazon-base/MCP映射表.md`，把 Sorftime 工具名换成卖家精灵等价工具。
-
-两个例外：`sif-amazon-research` 和 `xiyou-insight` 依赖的 MCP 未接入，只能借用它们的方法论框架，不要假装拿到了数据。
+每一步都落文件，下一模块读文件，不靠上下文传递。
 
 ## 路由表
 
-| 用户意图 | 读这个 |
+| 用户意图 | 去这里 |
 |---|---|
-| 挖关键词、扩词、做词库、否词清单 | `keyword-research/SKILL.md` |
-| 一个 ASIN 做到底（选品/竞品/流量/广告/Lising/评论） | `sellersprite-amazon-research/skill.md` |
-| 单个竞品 Listing 全维度穿透 | `amazon-analyse/SKILL.md` |
-| 整个类目 Best Sellers 扫描 | `category-selection/SKILL.md` |
-| 从关键词出发做选品调研 | `product-research/SKILL.md` |
-| 差评归因、痛点提炼 | `review-analysis/SKILL.md` |
-| 写/改 Listing、标题、五点、A+、ST、QA | `amazon-listing-builder/skill.md` |
-| 要"证据链 → 商业决策"的严谨口吻 | `sif-amazon-research/SKILL.md`（借框架，不用其工具） |
-| 流量缺口、竞品流量拆解 | `xiyou-insight/SKILL.md`（借框架，用 `traffic_keyword` 复现） |
-
-## 三个最常用的执行入口
-
-**关键词调研（最常用，v2）**
-1. 读 `keyword-research/SKILL.md` 拿四路采集流程和打分公式
-2. 四路并集：`asin_competitor`（竞品扩池）→ `asin_detail` + `freq.py`（标题/五点词频）→ `web_fetch` 调 Amazon 自动补全（长尾）
-3. `keyword_miner` 的 `keywordList` 批量补搜索量/SPR/标题密度/PPC
-4. 算 R（相关性）→ 算 W（权重）→ 分 P0/P1/P2/NEG
-5. 输出：`keyword_library.csv` + `negative_words.txt` + `handoff.md`（交给文案环节）
-
-**单 ASIN 深度调研**
-读 `sellersprite-amazon-research/skill.md`，按它的综合工作流选子文档（`comprehensive/*.md`），数据走 `asin_detail` / `traffic_keyword` / `review` / `market_research`。
-
-**选品战术扫描**
-读 `sellersprite-amazon-research/tactical/*.md`，16 张战术卡（新品爆发、隐形爆款、ABA 高增长词、低品牌垄断、标题密度缺口、热销低评分等），每张卡都写了筛选条件，直接对应 `product_research` / `aba_research_*` 的参数。
+| 挖词、扩词、做词库、否词清单 | `modules/10-keyword/SKILL.md` |
+| 竞品怎么打、竞品卖点拆解 | `modules/20-competitor/` |
+| 评论痛点、用户画像、使用场景 | `modules/30-insight/` |
+| 卖点库、卖点排序 | `modules/40-selling-point/` |
+| 写标题 / 亮点 / 五点 / ST | `modules/50-copy/` |
+| 主图顺序、设计 brief | `modules/90-main-image/` |
+| 查某个 MCP 工具怎么调 | `vendor/sellersprite-amazon-research/reference/` |
+| 合规红线、政策边界 | `modules/_common/政策边界.md` |
+| 输出怎么写才合规 | `modules/_common/输出规范.md` |
+| 单 Listing 全维度穿透的框架 | `vendor/amazon-analyse/SKILL.md` |
 
 ## 硬性规矩
 
-1. **先读映射表再调工具。** 本机只存在卖家精灵前缀 `mcp__ss_mcp__*`。Sorftime / Sif / 西柚 / 旧卖家精灵前缀的工具在本机都不存在，照抄会失败。
-2. **区分"已验证数据"和"推断"。** 搜索量、点击份额、SPR 是数据；"这个词有机会"是判断。报告里分开写。
-3. **口径不可混用。** 卖家精灵和 Sorftime 的搜索量来自不同样本，同一份报告里不要一半一半拼。
-4. **报告三件套**：Markdown 正文 + CSV 词库 + HTML/表格看板。词库要能直接导入广告后台。
+1. **工具前缀只有 `mcp__ss_mcp__`。** Sorftime / Sif / 西柚的接口本机不存在，`vendor/` 里若有残留写法，按 `MCP映射表.md` 换掉。
+2. **每个数字都要标来源和口径。** 见 `modules/_common/输出规范.md`，不标视为不合格。
+3. **多口径不混用。** 卖家精灵、ABA、后台商机探测器的搜索量不能相加，一份报告只用一个口径。
+4. **没数据就标 DATA_MISSING。** 不要用别的方法凑，也不要用浏览器抓 Amazon 顶替。
+5. **改 `modules/` 不改 `vendor/`。** vendor 是上游快照，改了就 diff 不出原版了。
 
-## 改造方式（2026-11-13 起）
+## 已清理的内容
 
-**直接改 `vendor/` 里的文件**，不再另建自建层。理由：仓库已 fork 到自己账号，只服务一个用户，分层的收益抵不过维护成本。上游若更新，用 diff 手工挑。
+2026-11-13 删掉了对本项目无用的部分：
 
-当前改造进度：
-1. ✅ 关键词调研 v2：四路采集 + 权重打分 + `handoff.md` 交接单
-2. ✅ 文案排序规则：`amazon-listing-builder/reference/ranking-rules.md`（标题按 W、Highlights 按差异、五点按 M）
-3. ⬜ 用真实 ASIN 跑一轮，校准 R / W 的阈值
-4. ⬜ `review-analysis` 的痛点结论接进五点排序（M 公式里的 P 分量目前靠人工估）
-5. ⬜ 自动补全的 mid 表补齐 CA / AU / IN / MX
+| 删除 | 原因 |
+|---|---|
+| `sif-amazon-research` | 需 Sif MCP，本机没有 |
+| `xiyou-insight` | 需西柚 MCP，本机没有 |
+| `category-selection` | 类目选品，本项目不做 |
+| `product-research` | 选品调研，本项目不做 |
+| `keyword-research` | 已升级为 `modules/10-keyword/` |
+| `sellersprite/tactical`（16 张战术卡） | 选品用，本项目不做 |
+| `sellersprite/comprehensive`（10 个工作流） | 选品用，被 modules 取代 |
+
+GitHub 仓库里还留着这些文件的历史副本（API 删除要逐文件调用，先不动），本地工作区已经干净。
+
+## 当前进度
+
+| 模块 | 状态 |
+|---|---|
+| `00-input` | ✅ |
+| `10-keyword` | ✅ v3，可运行 |
+| `_common` | ✅ |
+| `20-competitor` | ⬜ 骨架 |
+| `30-insight` | ⬜ 骨架 |
+| `40-selling-point` | ⬜ 骨架 |
+| `50-copy` | ⬜ 骨架 |
+| `90-main-image` | ⬜ 骨架 |
+
+下一步：用一个真实 ASIN 组跑通 `10-keyword`，校准 R 的判定阈值，再往 `20-competitor` 走。
