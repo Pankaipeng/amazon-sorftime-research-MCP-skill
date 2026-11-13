@@ -57,14 +57,14 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 
 ```
 0. 读 00-input，确认三类 ASIN + 事实卡齐全
-1. 方法 A：扩池。两步都要做——asin_competitor 扩一层 + 类目 product_research 销量 Top10
+1. 方法 A：扩池。三步都要做——asin_competitor 扩一层 + 类目 product_research（variation:"Y"）销量 Top + 按形态过滤剔掉台面竞品
 2. 批量拉 asin_detail，落 products.json
-3. 方法 B/C：跑 freq.py，出标题词频 + Listing 词频
+3. 方法 B/C：跑 freq.py --strip-brands，出标题词频 + Listing 词频
 4. 方法 D：选 1-3 个种子词，跑 ac.py 生成请求清单，逐个 web_fetch
 5. 合并去重，标来源（A/B/C/D/E）
 6. keyword_miner 批量补搜索量、SPR、标题密度、PPC
 7. 方法 E：有后台报表就做三口径对账，补搜索转化率与趋势
-8. 算相关性 R → 算权重 W → 分层（大词/核心词/长尾词）→ 排优先级
+8. 算相关性 R（含形态维度）→ 算权重 W → 分层（大词/核心词/长尾词）→ 排优先级
 9. 输出：四个方法的原始产出 + 合并词库 + 否定词 + 交接单
 ```
 
@@ -78,7 +78,8 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 
 | 文件 | 内容 |
 |---|---|
-| `01-竞品ASIN库.csv` | 方法 A 扩池结果，带层级、权重、来源 |
+| `01-竞品ASIN库.csv` | 方法 A 扩池结果，带层级、权重、**安装形态**、来源 |
+| `01b-排除的台面竞品.csv` | 按形态过滤掉、未入池的竞品，留档备查 |
 | `02-标题高频词.csv` | 方法 B 词频，已剔品牌 |
 | `03-Listing高频词.csv` | 方法 C 词频；拿不到文本时标代理数据 |
 | `04-自动补全词表.csv` | 方法 D 全部联想词 + 词类标注 |
@@ -111,12 +112,14 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 
 | 档 | 条件 | 动作 |
 |---|---|---|
-| P0 | W 前 10 且 R ≥ 0.8 | 标题、Highlights |
-| P1 | W 11-40 | 五点、A+ |
-| P2 | W 41-70 或 R 0.5-0.8 | ST、QA |
-| P3 | W 70 以后 | 观察，不投 |
+| P0 | W 前 10 且 R ≥ 0.8 **且 搜索转化率 ≥ 2%** | 标题、Highlights |
+| P1 | W 11-40 或 R 0.6-0.8 或 转化率 < 2% | 五点、A+ |
+| P2 | R 0.5-0.8 | ST、QA |
+| P3 | R < 0.5 但 > 0 | 观察，不投 |
 | NEG | R1=0 或 R2=0 | 否定清单 |
 | BRAND | 竞品品牌词 | 单列，不算机会 |
+
+**转化率是一票否决，不是加分项**：有后台报表时，搜索转化率 < 2% 的词不管搜索量多大都进不了 P0。实测 `kitchen sink organizer`（98,007 搜索 / 1.88%）和 `kitchen sink accessories`（71,536 搜索 / 0.69%）因此降到 P1。没有报表时不套这条，但要在口径声明里写清。
 
 ### 四件套
 
@@ -153,7 +156,10 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 |---|---|---|
 | `keyword_order` 实测返回 0 条 | 竞品转化分层拿不到 | 不用它。改用 `traffic_keyword` 的 `conversionKeywordType`，为空就标 `DATA_MISSING`，靠后台报表补 |
 | `asin_detail` 不返回 bullets / description | 方法 C 跑不了 | 只跑方法 B，报告里写明方法 C 未执行 |
-| **`asin_competitor` 会漏掉类目第一** | 实测海绵架类目第一的 Cisily 完全没被扩出来，直接导致差异化结论错误 | **扩池必多一步：按类目 nodeIdPath 拉 `product_research` 销量 Top10** |
+| **`asin_competitor` 会漏掉类目第一** | 实测海绵架类目第一的 Cisily 完全没被扩出来，直接导致差异化结论错误 | **扩池必多一步：按类目 nodeIdPath 拉 `product_research`，按销量降序** |
+| **`product_research` 默认带变体，会把样本吃干** | 实测 Cisily 30 个变体占满销量 Top 30，"扩了 30 个"实际只等效 1 个新竞品；9 个 ASIN 的词频把 `smiley face` 误判成独有卖点 | **必传 `variation: "Y"`，并做品牌去重（同品牌 ≤ 2 个）**；样本 < 15 个不判覆盖率 |
+| **类目节点里混着不同形态的竞品** | 台面/托盘款的 `tray`、`countertop` 会把壁挂件的词频带偏，混着算出来的差异化是假的 | 扩池时按形态过滤，台面款排除；词频只用同形态样本 |
+| **类目节点里混着跨类目噪声** | 实测 100 个候选里 13 个是牛皮纸袋架、吸管架、香蕉钩 | 按 R1 品类相关过滤，标题里没有本品核心名词就丢 |
 | `product_research` 的 `asins` 参数被忽略 | 不能按 ASIN 批量取数 | 用 `asin_detail` 逐个取 |
 | `competitor_lookup` 的 `page`/`size` 被忽略 | 永远只返回 5 条 | 扩池用 `asin_competitor` + 类目 `product_research` |
 | `traffic_keyword` 混入无关词 | 实测壁挂衣架的词表里出现 "toilet caps" | 拿回来先按 R1 品类相关过滤 |
@@ -173,3 +179,4 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 - v3.1（2026-11-13）：按实测修正工具适用性，补后台数据上传契约。
 - v3.2（2026-11-13）：分层规则修正（词数不作单独判定、大词门槛 P90→P75）。
 - v3.3（2026-11-13）：补方法 E（后台数据校准）与四份方法产出要求；补「扩池会漏类目第一」限制。
+- v3.4（2026-11-13）：扩池改为三步（variation:"Y" 排变体 + 品牌去重 + 形态过滤剔台面）；R2 增加形态维度；P0 增加搜索转化率 ≥ 2% 门槛；freq.py 增加 `--strip-brands`。
