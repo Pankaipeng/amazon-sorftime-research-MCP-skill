@@ -47,6 +47,9 @@ FIELD_WEIGHT = {"title": 3.0, "bullets": 2.0, "description": 1.0}
 
 TOKEN_RE = re.compile(r"[a-z0-9]+(?:'[a-z]+)?")
 
+# 运行时追加的剔除词（品牌名等），由 --strip-words / --strip-brands 填充
+EXTRA_STOP = set()
+
 
 def normalize(text):
     text = (text or "").lower()
@@ -57,7 +60,8 @@ def normalize(text):
 
 
 def ngrams(text, max_n=3):
-    toks = [t for t in TOKEN_RE.findall(normalize(text)) if t not in STOP and len(t) > 1]
+    toks = [t for t in TOKEN_RE.findall(normalize(text))
+            if t not in STOP and t not in EXTRA_STOP and len(t) > 1]
     out = []
     for n in range(1, max_n + 1):
         for i in range(len(toks) - n + 1):
@@ -87,6 +91,10 @@ def main():
     ap.add_argument("--min-asin", type=int, default=1,
                     help="至少出现在几个 ASIN 里才输出（默认 1）")
     ap.add_argument("--top", type=int, default=200, help="输出前 N 条（默认 200）")
+    ap.add_argument("--strip-words", default="",
+                    help="剔除词，逗号分隔。如 sunnypoint,taili,toplife")
+    ap.add_argument("--strip-brands", action="store_true",
+                    help="自动把输入里 brand 字段的词拆开剔掉（推荐开着）")
     ap.add_argument("--out", help="输出 CSV 路径，不填则打印到屏幕")
     args = ap.parse_args()
 
@@ -94,6 +102,17 @@ def main():
     if not products:
         print("输入为空", file=sys.stderr)
         sys.exit(1)
+
+    # 剔除品牌词：品牌名进了词频表会把"行业通用词"带偏
+    for w in args.strip_words.split(","):
+        w = w.strip().lower()
+        if w:
+            EXTRA_STOP.update(TOKEN_RE.findall(w))
+    if args.strip_brands:
+        for p in products:
+            for w in TOKEN_RE.findall((p.get("brand") or "").lower()):
+                if len(w) > 1:
+                    EXTRA_STOP.add(w)
 
     # gram -> field -> {weighted, raw, asins:set, l0:count}
     stats = defaultdict(lambda: defaultdict(lambda: {
