@@ -3,7 +3,7 @@
 # 改阈值只改这里，不要改脚本。
 
 version: 1
-updated: 2026-11-17
+updated: 2026-11-18
 owner: 50-copy
 
 meta:
@@ -16,6 +16,9 @@ meta:
   # 写进 文案.xlsx 说明页的口径备注。换类目必须一起改，否则说明页会和数据脱钩。
   keyword_note: "232 词，全表统一 2026-10 卖家精灵口径"
   bullet_note: "五点按卖点分 M 降序，2026-11-17 定"
+  # 写进 xlsx 说明页的「已知缺口」行。2026-11-18 起进配置：原先写死在 build_copy.py 第 184 行，
+  # 内容随事实卡更新而过期（吸盘数量已补、卡扣由「待补」变成「确认无增强」），属手写数字会漂那一类。
+  known_gap: "无实测承重（load.tested=false）→ 全篇禁 lbs；三围三项未填（用户裁定）→ SP23 BLOCKED、标题无规格槽、尺寸图做不了；吸盘直径/材质未填 → SP01 停在 DOWNGRADE；卡扣确认无增强 → SP07 禁喊 reinforced、A→C；备用件为 0 → 禁 spare/extra suction"
 
 # ---------- 输入（{category} 由命令行 --category 替换） ----------
 inputs:
@@ -27,6 +30,7 @@ inputs:
 # ---------- 输出（文件名带 CP- 前缀，与 10-keyword 的 00~10、40-selling-point 的 SP- 区分） ----------
 outputs:
   dir:       调研/{category}/copy
+  placement: CP-01-词位分配.csv   # 人工设计产物，build_copy.py 前置校验其存在
   selfcheck: 08-文案自检.txt
   coverage:  CP-03-覆盖清单.csv
   issues:    CP-04-问题清单.csv
@@ -152,7 +156,10 @@ embedding:
 coverage:
   missing_rule:
     P0: FAIL            # 必放词未覆盖 = FAIL
-    P1: WARN            # 可放弃，但必须在 copy.json 的 coverage_reasons 里写理由
+    # 这一行只决定 CP-03 里逐词的 verdict 列（行级），不是交付闸门。
+    # 交付级判定看 severity.coverage_p1（2026-11-18 已升 FAIL），且要求归因可核。
+    # 两处不是双源：一个管报表行，一个管能不能交。别把它们改成同一个值。
+    P1: WARN
     P2: IGNORE
   ignore_prio: [BRAND, NEG, OBSERVE, NODATA]   # 这些 prio 不参与覆盖检查
   match: stem           # 词干匹配，允许词序调整与单复数变化（用户 SOP P5）
@@ -160,18 +167,25 @@ coverage:
 # ---------- 自动决断（见 references/06-决断规则.md）----------
 # 目的：把小选择变成可计算的判断，不回来问人。只有事实缺失/商业取舍/品牌调性才问。
 decisions:
-  # 一个词位带来的新增搜索量之和（W 加总）达到此值，自动写进去，不问。
-  # 低于此值时，仅当该词同时承担说服或防退价值（作人话）才保留。
+  # ---- 接线状态逐键标注（2026-11-18 核对）----
+  # 这一节混了两类键：一类是「写作时的决策参数」（自检脚本不读），一类是「自检阈值」（脚本读）。
+  # 之前不区分，导致文档里承诺的 FAIL 其实没有闸门（bullet_fact_anchor_min 就是其一）。
+  #
+  # 【写作参数·脚本不读】一个词位新增覆盖的 W 合计达到此值自动写入，不问。
+  #   低于此值时，仅当兼有说服或防退价值才保留。判它的是写词位的一方，不是 check_copy。
   slot_min_w_gain: 5000
-  # 零覆盖的五点条目：允许留，但必须至少挂一句防退或一个事实规格；两者都无则删。
+  # 【写作参数·脚本不读】零覆盖的五点条目必须至少挂一句防退或一个事实规格，两者都无则删。
+  #   机器侧的等价检查是 C9 的「无事实锚点」段（由下面的 bullet_fact_anchor_min 驱动）。
   zero_coverage_requires_value: true
-  # 亮点里允许重复标题的词数上限。原设 1，实测会自相矛盾：
+  # 【自检阈值】亮点里允许重复标题的词数上限。原设 1，实测会自相矛盾：
   # "two divided zones keep sponge and brush apart" 里 sponge 与标题重复，但删掉句子就不成立。
   # 判定用「删除测试」：删掉重复词后句子仍成立 → 是凑索引，删；读不懂/信息缺失 → 表意必需，留。
+  #   C10 只判数量上限；删除测试本身脚本做不了，属 08 §六人工项。
   highlight_repeat_max: 2
-  # 亮点第 1 个短语必须是 D 分最高的差异化特性（移动端只露开头一小段）。
+  # 【写作参数·脚本不读】亮点第 1 个短语必须是 D 分最高的差异化特性（移动端只露开头一小段）。
+  #   D 值在卖点库 v2 里，check_copy 不读卖点库，故无法机器校验——写的时候自查。
   highlight_first_phrase: differentiation
-  # 亮点短语数（逗号分隔段数）与单段词数。少于 3 段信息不够，多于 5 段读起来像参数表。
+  # 【自检阈值】亮点短语数（逗号分隔段数）与单段词数。少于 3 段信息不够，多于 5 段读起来像参数表。
   # 注意：短语内部的列举也会用逗号（fits glass, tile and steel），所以段数按切分数算，区间放宽即可。
   highlight_phrase_min: 3
   highlight_phrase_max: 5
@@ -179,11 +193,14 @@ decisions:
   # 第 1 段要能在移动端一次露完，按字符判（用 highlight_mobile_visible_chars，不是按词数）
   # 移动端亮点约露出多少字符（行业观察，亚马逊未公布确切值，仅用于写作时判断"开头够不够"）
   highlight_mobile_visible_chars: 40
-  # 五点每条至少含几个事实锚点（数字/材质/结构/边界），0 个即 FAIL
+  # 【自检阈值·2026-11-18 起真读】五点每条至少含几个事实锚点（数字/材质/结构/边界）。
+  #   原先文档写「0 个即 FAIL」但代码里没有任何引用，属虚假承诺；现由 C9 实现，
+  #   锚点词表不新造，从事实卡的材质/表面/结构/场景取值派生。
   bullet_fact_anchor_min: 1
-  # 标题字符上限（官方硬线）。超过即触发「先挪词到亮点，不砍词」。
+  # 【别名，勿单独改】标题字符上限。真源在 fields.title.max（C1 读那个），
+  #   这里保留只为 06/07 文档引用时不悬空；两处值必须相同。
   title_char_max: 75
-  # 亮点字符上限。
+  # 【别名，勿单独改】亮点字符上限，真源 fields.highlights.max。
   highlight_char_max: 125
 
 # ---------- 禁用表 ----------
@@ -305,6 +322,7 @@ disallowed:
     - "incl."
     - "ea."
   # 全大写缩写白名单：这些不算「全大写」违规（RV / PC / UV 等是行业通用写法）
+  # 2026-11-18 起真正被 C12 读取（此前无人引用，RV/PC 会被误报全大写）
   caps_allow:
     - RV
     - PC
@@ -361,7 +379,10 @@ severity:
   root_repeat: WARN
   noun_run: WARN
   sentence_len: WARN
-  coverage_p1: WARN
+  coverage_p1: FAIL
+  # 2026-11-18 由 WARN 升 FAIL。原实现：P1 未覆盖且无归因只给 WARN、退出码仍 0，
+  # 而 SKILL 硬规则 3 写的是「写不出归因不算理由」——闸门比文档松一档。
+  # 现在的判据是「归因可核」：L0 须指回事实卡真实字段，L1 须给 R 值或门槛，L2 须点明重复对象。
   highlights_overlap: WARN   # 2026-11-17 用户裁决：标题与亮点应尽量不重复，保持 WARN
   desc_density: INFO         # 作废：C11 已改为只报数，此键不再驱动判定（留档防误用）
   # 2026-11-17 新增：官方标题/五点边界

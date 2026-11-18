@@ -12,9 +12,11 @@
   C4  短语重复     同一整短语全篇 ≤3 次，最多出现在 1 条五点上
   C5  词根重复     P0 词根 ≤8 次/≤4 条，P1 词根 ≤3 次/≤2 条
   C6  可读性       连续名词 ≥4 个、单子句 >20 词（描述 ≤30）
-  C7  覆盖         P0 未覆盖 FAIL / P1 未覆盖 WARN（须归因）/ P2 只报数
+  C7  覆盖         P0 未覆盖 FAIL / P1 未覆盖必须「归因可核」否则 FAIL（2026-11-18 升）
+                   / ST 为空而词库仍有 R≥0.6 未覆盖词 FAIL / P2 只报数
   C8  HTML 检查    四个字段零标签、零实体
-  C9  事实越权     无实测承重时全篇禁 lbs / pound / kg
+  C9  事实越权     ① 无实测承重禁 lbs/pound/kg ② 事实卡无尺寸时禁 in/cm/mm/oz
+                   ③ slots/zones/cups 前的数字须等于事实卡实值 ④ 每条五点须有事实锚点
   C10 亮点重复     与标题重复的实义词 ≤2 个，且须过删除测试
   C11 描述密度     只报数，不评分（口径本身不成立）
   C12 官方边界     全大写 / 特殊字符 / 句末标点 / 单词 ≤2 次 / emoji / 占位 / 缩写 / 单位空格
@@ -36,7 +38,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 # emoji 与常见符号图形，官方要点 requirements 页明列禁项
-EMOJI_RE = r"[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u2B00-\u2BFF\u2190-\u21FF]"
+EMOJI_RE = r"[\U0001F000-\U0001FAFF☀-➿️⬀-⯿←-⇿]"
 # C12 各命中类别 → severity 键 / issue 定位（2026-11-17 扩到 emoji、占位、缩写、单位空格）
 HARD_SEV = {"全大写": "title_format", "特殊字符": "title_format", "句末标点": "title_format",
             "单词重复": "title_word_repeat", "促销语": "promo", "卖家信息": "promo",
@@ -117,6 +119,90 @@ def norm_phrase(s):
     return " ".join(tokens(s))
 
 
+def count_literal(term, text):
+    """按原文匹配（保留 % # 等符号）。
+    norm_phrase 会丢符号，导致红线 `100%` 命中裸数字 100 —— 文案写「holds 100 sponges」
+    会被判红线 FAIL。含符号的词必须走这里。"""
+    t = (text or "").lower()
+    return len(re.findall(r"(?<![\w])" + re.escape(term.lower()) + r"(?![\w])", t))
+
+
+SYMBOLIC = re.compile(r"[%#]")
+
+# 官方 GX5L8BF8GLMML6CX 要求「Add a header with a colon followed by a description」，
+# 冒号必须在段首的 Header 之后，不能藏在句中——只判「含冒号」会放过长句里随便一个冒号。
+HEADER_RE = re.compile(r"^[^:;]{2,60}:")
+
+
+def hit_count(term, text):
+    """词表命中次数：带 % / # 的词按原文匹配，其余走归一化短语匹配。"""
+    if SYMBOLIC.search(term or ""):
+        return count_literal(term, text)
+    return count_phrase(term, text)
+
+
+FAM_TAIL = {"s", "es", "ed", "ing", "er", "ers", "or", "ors", "ly", "y"}
+
+
+def same_family(a, b):
+    """同族判定。stem('organizing')='organiz' 与 stem('organizer')='organizer'
+    互不相等，覆盖判定会把 organizer 簇判成未覆盖（本品类核心簇，会造成下一轮白补词）。
+    规则：短的一方必须是长一方的前缀，且多出的尾缀只能是派生后缀。
+    2026-11-18 收紧：先用「前缀 + 长度差 ≤3」，结果 counter 把 countertop 判成已覆盖——
+    而 countertop 对本品是形态冲突词，假覆盖比假未覆盖危险得多（会把台面流量引进来）。"""
+    if a == b:
+        return True
+    if not a or not b:
+        return False
+    short, long_ = (a, b) if len(a) < len(b) else (b, a)
+    return long_.startswith(short) and long_[len(short):] in FAM_TAIL
+
+
+def in_stems(want, sset):
+    return any(same_family(want, s) for s in sset)
+
+
+def fpath(obj, dotted):
+    cur = obj
+    for part in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+        if cur is None:
+            return None
+    return cur
+
+
+PATH_RE = re.compile(r"\b[a-z_]+(?:\.[a-z_]+){1,}\b")
+
+
+def audit_reason(reason, facts):
+    """归因可核判定：返回 (layer, 是否可核, 原因)。
+    2026-11-18 补：原先只看 L0/L1/L2 前缀，编一句「L0 事实：随便写的」就能让
+    P1 缺失整项变绿，SKILL 硬规则 3「写不出归因不算理由」从未被强制。
+      L0 事实层 → 必须指回事实卡里真实存在的字段路径（如 structure.zone_use）
+      L1 表达层 → 必须给出 R 值或门槛，否则无法复核「读不通」是不是托词
+      L2 重复层 → 必须点明重复对象（词根 / 短语 / 上限）
+    """
+    if not (reason or "").strip():
+        return "", False, "无归因"
+    if reason.startswith("L0"):
+        paths = PATH_RE.findall(reason)
+        real = [p for p in paths if fpath(facts, p) is not None]
+        if real:
+            return "L0 事实", True, "引用 %s" % real[0]
+        return "L0 事实", False, "没有指回事实卡真实字段（写出的路径查不到：%s）" % (", ".join(paths[:3]) or "无")
+    if reason.startswith("L1"):
+        if re.search(r"R\s*=\s*0\.\d+|门槛|slot_min_w_gain", reason):
+            return "L1 表达", True, "给了 R 或门槛"
+        return "L1 表达", False, "未给 R 值或门槛，无法复核"
+    if reason.startswith("L2"):
+        if re.search(r"重复|超限|词根|上限", reason):
+            return "L2 重复", True, "点明重复对象"
+        return "L2 重复", False, "未点明重复对象"
+    return "", False, "前缀不是 L0/L1/L2"
+
+
 def count_phrase(phrase, text):
     """整短语出现次数（词边界匹配，避免 cup 命中 occupy）。"""
     p = norm_phrase(phrase)
@@ -183,6 +269,17 @@ def main():
 
     # ---------- C1 字段边界 ----------
     bad = []
+    # 大纲输出层四个字段（标题/亮点/五点/ST）里，标题与亮点为空直接 FAIL。
+    # 2026-11-18 补：原先只判上限，空字段能整项通过；亮点为空时 C2b 还会整项静默跳过，
+    # 检查项从 15 掉到 14 且全绿。ST 为空由 C7 单独判（要看词库里还有没有可入后台的词）。
+    if not title.strip():
+        bad.append("标题为空")
+        issue(sev["field_limit"], "C1", "title", "", "Item Name 为空", "按 07 §2.0 四段组标题")
+    if not high.strip():
+        bad.append("亮点为空")
+        issue(sev["field_limit"], "C1", "highlights", "", "Item Highlights 为空（大纲四字段之一）",
+              "按 07 §3.0 先平铺六个信息类目再定顺序")
+        warn("C2b 亮点结构", "亮点为空，本项未评估（不是通过）")
     if len(title) > f["title"]["max"]:
         bad.append("标题 %d 字符 > %d" % (len(title), f["title"]["max"]))
         issue(sev["field_limit"], "C1", "title", title, "超 %d 字符" % f["title"]["max"], "先做词干压缩，再按序砍")
@@ -241,9 +338,10 @@ def main():
         if not bl.strip():
             problems.append("五点 %d 为空" % i)
             continue
-        if st_cfg["bullet_requires_colon"] and ":" not in bl:
-            problems.append("五点 %d 缺冒号" % i)
-            issue(sev["bullet_structure"], "C2", loc, bl, "缺官方要求的冒号分隔", "写成 Header: phrase; phrase")
+        if st_cfg["bullet_requires_colon"] and not HEADER_RE.match(bl):
+            problems.append("五点 %d 缺段首冒号（官方要求 Header: description）" % i)
+            issue(sev["bullet_structure"], "C2", loc, bl, "冒号不在段首，Header 结构不成立",
+                  "写成 Header: phrase; phrase，冒号前 2-60 字符")
         if st_cfg["bullet_requires_semicolon"] and ";" not in bl:
             problems.append("五点 %d 缺分号" % i)
             issue(sev["bullet_structure"], "C2", loc, bl, "缺官方要求的分号", "用分号分隔短语")
@@ -292,12 +390,12 @@ def main():
     hits = {"redline": [], "ai_cliche": [], "vague": []}
     for name in hits:
         for w in dis[name]:
-            n = count_phrase(w, frontend)
+            n = hit_count(w, frontend)
             if n:
                 hits[name].append("%s×%d" % (w, n))
     cat_forbidden = []
     for item in (cfg.get("categories", {}).get(args.category, {}) or {}).get("forbidden", []):
-        if count_phrase(item["word"], frontend):
+        if hit_count(item["word"], frontend):
             cat_forbidden.append(item["word"])
             issue(sev["category_forbidden"], "C3", "全篇", item["word"], item["reason"], "删词并回查卖点库")
 
@@ -305,11 +403,11 @@ def main():
         fail("C3 禁用表", "红线：%s｜AI 腔：%s"
              % ("、".join(hits["redline"]) or "无", "、".join(hits["ai_cliche"]) or "无"))
         for w in dis["redline"]:
-            if count_phrase(w, frontend):
+            if hit_count(w, frontend):
                 issue(sev["redline"], "C3", "全篇", w, "红线词",
                       dis["replacements"].get(w, "改为可验证表述"))
         for w in dis["ai_cliche"]:
-            if count_phrase(w, frontend):
+            if hit_count(w, frontend):
                 issue(sev["ai_cliche"], "C3", "全篇", w, "营销腔，无信息量", "换成具体动作或条件")
     elif cat_forbidden:
         fail("C3 禁用表", "品类禁写：%s" % "、".join(cat_forbidden))
@@ -319,7 +417,7 @@ def main():
     if hits["vague"]:
         warn("C3 禁用表", "空话：%s（占掉了能写事实的位置）" % "、".join(hits["vague"]))
         for w in dis["vague"]:
-            if count_phrase(w, frontend):
+            if hit_count(w, frontend):
                 issue(sev["vague"], "C3", "全篇", w, "无证据的形容词", "换成材料/尺寸/场景事实")
 
     # ---------- C4 短语重复 ----------
@@ -437,7 +535,8 @@ def main():
     for _, t in field_texts:
         all_stems.update(stems(t, stop))
 
-    p0_miss, p1_miss, p1_noreason, counted = [], [], [], 0
+    p0_miss, p1_miss, p1_noreason, p1_fake, counted = [], [], [], [], 0
+    st_pool = []          # 未覆盖且 R≥0.6 的词：本该进 ST 的候选
     for r in library:
         prio = (r.get("prio") or "").strip()
         if prio in ignore or prio not in ("P0", "P1", "P2"):
@@ -446,14 +545,15 @@ def main():
         if not kw:
             continue
         need = [stem(t) for t in tokens(kw, stop)]
-        covered = all(nt in all_stems for nt in need) if need else False
+        # 同族匹配：stem('organizing')='organiz' 与 organizer 不相等，硬判相等会假「未覆盖」
+        covered = all(in_stems(nt, all_stems) for nt in need) if need else False
         where, form = "", ""
         if covered:
             exact_hit, stem_hit = "", ""
             for loc, t in field_texts:
                 if count_phrase(kw, t):
                     exact_hit = exact_hit or loc
-                elif all(stem(x) in set(stems(t, stop)) for x in tokens(kw, stop)):
+                elif all(in_stems(stem(x), set(stems(t, stop))) for x in tokens(kw, stop)):
                     stem_hit = stem_hit or loc
             if exact_hit:
                 where, form = exact_hit, "EXACT"
@@ -464,24 +564,26 @@ def main():
                 where, form = "跨字段", "SPLIT"
         verdict = "PASS" if covered else rule.get(prio, "IGNORE")
         reason = reasons.get(kw, "")
-        layer = ""
-        if reason.startswith("L0"):
-            layer = "L0 事实"
-        elif reason.startswith("L1"):
-            layer = "L1 表达"
-        elif reason.startswith("L2"):
-            layer = "L2 重复"
+        layer, audited, why = audit_reason(reason, facts)
         if not covered:
             counted += 1
+            try:
+                if float(r.get("R") or 0) >= 0.6:
+                    st_pool.append(kw)
+            except (TypeError, ValueError):
+                pass
             if prio == "P0":
                 p0_miss.append(kw)
             elif prio == "P1":
                 p1_miss.append(kw)
                 if not layer:
                     p1_noreason.append(kw)
+                elif not audited:
+                    p1_fake.append((kw, why))
         COVER.append({"keyword": kw, "prio": prio, "W": r.get("W", ""),
                       "covered": "是" if covered else "否", "where": where, "form": form,
-                      "layer": layer, "reason": reason, "verdict": verdict})
+                      "layer": layer, "reason": reason, "verdict": verdict,
+                      "audit": "可核" if audited else ("不可核：" + why if layer else "无归因")})
 
     p0_rule = rule.get("P0", "FAIL")
     if p0_miss and p0_rule == "FAIL":
@@ -492,14 +594,31 @@ def main():
         ok("C7 覆盖", "P0 全覆盖（%d 个 P0 词）"
            % sum(1 for r in library if (r.get("prio") or "") == "P0"))
 
-    if p1_miss:
-        if p1_noreason:
-            warn("C7 覆盖", "P1 未覆盖 %d 个，其中 %d 个无归因：%s"
-                 % (len(p1_miss), len(p1_noreason), "、".join(p1_noreason[:5])))
-            for kw in p1_noreason:
-                issue(sev["coverage_p1"], "C7", "全篇", kw, "P1 未覆盖且无归因", "写 L0/L1/L2 理由，或补词")
+    # 2026-11-18 升级：P1 未覆盖且无归因 / 归因不可核，从 WARN 升 FAIL。
+    # 原实现只 WARN、退出码仍 0，等于「写不出归因不算理由」这条硬规则没有闸门。
+    if p1_noreason or p1_fake:
+        lvl = sev.get("coverage_p1", "FAIL")
+        msg = "P1 未覆盖 %d 个，其中无归因 %d 个、归因不可核 %d 个" % (
+            len(p1_miss), len(p1_noreason), len(p1_fake))
+        # 判定级别由 severity.coverage_p1 决定，不在代码里写死——否则又变成「配置说一套、脚本做一套」
+        (fail if lvl == "FAIL" else warn)("C7 覆盖", msg)
+        for kw in p1_noreason:
+            issue(lvl, "C7", "全篇", kw, "P1 未覆盖且无归因", "写 L0/L1/L2 理由，或补词")
+        for kw, why in p1_fake:
+            issue(lvl, "C7", "全篇", kw, "归因不可核（%s）" % why,
+                  "L0 须指回事实卡真实字段，L1 须给 R 值或门槛，L2 须点明重复对象")
+    elif p1_miss:
+        ok("C7 覆盖", "P1 未覆盖 %d 个，归因均可核" % len(p1_miss))
+
+    # ST 为空但词库里还有 R≥0.6 的未覆盖词 → 漏判修复：空 ST 原先整项通过
+    if not st.strip():
+        if st_pool:
+            fail("C7 覆盖", "ST 为空，但词库有 %d 个未覆盖且 R≥0.6 的词可入后台（示例：%s）"
+                 % (len(st_pool), "、".join(st_pool[:3])))
+            issue(sev["coverage_p0"], "C7", "search_terms", "", "ST 为空",
+                  "按 07 §六 取未覆盖词，≤250 字节")
         else:
-            ok("C7 覆盖", "P1 未覆盖 %d 个，均已归因" % len(p1_miss))
+            warn("C7 覆盖", "ST 为空，且词库无未覆盖的 R≥0.6 词（罕见，请复核词库）")
 
     # ---------- C8 HTML（2026-11-17 扩到全字段，原来只看描述）----------
     # 官方标题指南与要点指南都禁止 HTML/script 标签；描述自 2021 起不支持 HTML。
@@ -525,14 +644,103 @@ def main():
         ok("C8 HTML 检查", "标题/亮点/五点/描述 零标签、零实体")
 
     # ---------- C9 事实越权 ----------
+    # 2026-11-18 扩容。原实现只拦重量单位、且只在 load.tested=false 时拦，
+    # 实测往五点塞「8.5 in / 3 slots / 12 oz」整项照样 PASS——事实卡 dims 三项为 null
+    # 时尺寸类数值同样是无据声明。现拆三层：
+    #   ① 重量：load.tested=false → 禁 lbs/pound/kg
+    #   ② 尺寸与净重：事实卡对应字段为 null → 禁 in/cm/mm/oz（不管 tested）
+    #   ③ 件数：slots/zones/suction cups 前的数字必须等于事实卡实值
     load_tested = bool((facts.get("load") or {}).get("tested"))
     unit_hits = re.findall(r"\b\d+(?:\.\d+)?\s*(?:lbs?|pounds?|kgs?|kilograms?)\b", frontend, re.I)
+    over = []
     if unit_hits and not load_tested:
-        fail("C9 事实越权", "事实卡 load.tested=false，但文案出现：%s" % "、".join(unit_hits[:5]))
-        issue(sev["facts_units"], "C9", "全篇", "、".join(unit_hits[:3]),
-              "无实测承重数据", "删数值，改结构描述")
+        over.append("无实测承重却出现重量：%s" % "、".join(unit_hits[:5]))
+
+    dims_missing = [p for p in ("dims.outer_in.l", "dims.outer_in.w", "dims.outer_in.h")
+                    if fpath(facts, p) is None]
+    dim_hits = re.findall(r"\b\d+(?:\.\d+)?\s*(?:in|inch|inches|cm|mm)\b", frontend, re.I)
+    if dim_hits and dims_missing:
+        over.append("事实卡 %s 为 null，文案却出现尺寸：%s"
+                    % ("、".join(p.split(".")[-1] for p in dims_missing), "、".join(dim_hits[:5])))
+    oz_hits = re.findall(r"\b\d+(?:\.\d+)?\s*(?:oz|ounces?)\b", frontend, re.I)
+    if oz_hits and fpath(facts, "dims.net_weight_oz") is None:
+        over.append("事实卡无净重，文案出现：%s" % "、".join(oz_hits[:5]))
+
+    NUMW = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+            "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+    NUM_RE = r"\b(?:%s|\d+)\b" % "|".join(NUMW)
+
+    def num_val(s):
+        s = s.lower()
+        return NUMW.get(s, None) if not s.isdigit() else int(s)
+
+    for m in re.finditer(r"(?i)\b(%s)\s+(?:divided\s+)?(slots?|zones?)\b" % NUM_RE, frontend):
+        want = num_val(m.group(1))
+        fact = fpath(facts, "structure.zones")
+        if want is None:
+            continue
+        if fact is None:
+            over.append("件数声明 %s %s，但事实卡 structure.zones 为 null" % (m.group(1), m.group(2)))
+        elif want != int(fact):
+            over.append("件数声明 %s %s，事实卡 structure.zones=%s" % (m.group(1), m.group(2), fact))
+    for m in re.finditer(r"(?i)\b(%s)\s+(?:suction\s+)?cups?\b" % NUM_RE, frontend):
+        want = num_val(m.group(1))
+        fact = fpath(facts, "material.suction.qty")
+        if want is None:
+            continue
+        if fact is None:
+            over.append("吸盘件数声明 %s，但事实卡 material.suction.qty 为 null" % m.group(1))
+        elif want != int(fact):
+            over.append("吸盘件数声明 %s，事实卡 material.suction.qty=%s" % (m.group(1), fact))
+
+    # 每条五点至少一个事实锚点（数字 / 材质 / 结构 / 边界）。
+    # 依据 07 §4.3 与 copy_config 的 bullet_fact_anchor_min——原先该键无人读，
+    # 「整条只有形容词 FAIL」只存在于文档。锚点词表不新造：取事实卡各字段的值，
+    # 再经 fact_schema.yaml 的 enums 翻成英文措辞（事实卡是中文填的，不翻的话
+    # 英文文案里一个都命中不了，会把每条正常文案误判成空话——2026-11-18 实测踩过）。
+    anchor_min = int((cfg.get("decisions") or {}).get("bullet_fact_anchor_min", 1))
+    enums = {}
+    fs_path = Path(__file__).parent / "fact_schema.yaml"
+    if fs_path.exists():
+        enums = (load_yaml(fs_path) or {}).get("enums") or {}
+    entities = set()
+    for p in ("material.body", "material.finish", "material.color", "material.suction.material",
+              "material.clip.material", "material.stainless.grade", "structure.drain",
+              "structure.shape", "install.methods", "install.positions", "structure.zone_use",
+              "surfaces.ok", "surfaces.not_ok", "surfaces.scenes", "trust.warranty"):
+        v = fpath(facts, p)
+        vals = v if isinstance(v, list) else ([v] if v else [])
+        for x in vals:
+            words = str(enums.get(str(x), x)).split("/") if isinstance(x, str) else [str(x)]
+            for w in words:
+                for tok in re.findall(r"[A-Za-z][A-Za-z'\-]+|\d+", str(w)):
+                    entities.add(tok.lower())
+    # 品类核心词不算事实锚点：'kitchen' / 'sink' 这种词在任何一句水槽文案里都出现，
+    # 把它当锚点等于「整条只有形容词」也能过检（2026-11-18 反例实测）。
+    # 锚点必须是事实卡里的具体属性值，所以从 P0 词根里剔一遍。
+    p0_roots_for_anchor = set()
+    for r in library:
+        if (r.get("prio") or "").strip() == "P0":
+            p0_roots_for_anchor.update(stem(t) for t in tokens(r.get("keyword") or "", stop))
+    entities = {e for e in entities if stem(e) not in p0_roots_for_anchor}
+    no_anchor = []
+    for i, bl in enumerate(bullets, 1):
+        if not bl.strip():
+            continue
+        has_num = re.search(r"(?i)\b(?:%s|\d+)\b" % "|".join(NUMW), bl)
+        has_ent = any(e in bl.lower() for e in entities if len(e) >= 2)
+        if (1 if has_num else 0) + (1 if has_ent else 0) < anchor_min:
+            no_anchor.append("第 %d 点" % i)
+    if no_anchor:
+        over.append("整条只有形容词、无事实锚点：%s" % "、".join(no_anchor))
+
+    if over:
+        fail("C9 事实越权", "；".join(over[:6]))
+        for msg in over[:8]:
+            issue(sev["facts_units"], "C9", "全篇", "", msg, "删数值，或补事实卡后重跑 check_facts")
     else:
-        ok("C9 事实越权", "无实测承重数据，文案%s" % ("已禁 lbs/kg" if not load_tested else "含实测，允许写数值"))
+        ok("C9 事实越权", "重量%s｜尺寸与件数与事实卡一致｜五点事实锚点均 ≥%d 个"
+           % ("含实测" if load_tested else "已禁 lbs/kg", anchor_min))
 
     # ---------- C10 亮点重复标题 ----------
     # 用户 2026-11-17 裁决：允许重复，上限 2 个，且每个须过「删除测试」（删掉后句子是否还成立）
@@ -546,7 +754,7 @@ def main():
         issue(sev["highlights_overlap"], "C10", "highlights", high,
               "重复标题实义词 %d 个，超上限 %d" % (len(overlap), allow), "换同义词变体或删掉凑数词")
     elif overlap:
-        ok("C10 亮点重复", "重复标题实义词 %d 个（上限 %d）：%s｜逐个过删除测试，删掉后句子不成立才算表意必需"
+        ok("C10 亮点重复", "重复标题实义词 %d 个（上限 %d）：%s｜删除测试脚本不判，需人工核（08 §六）"
            % (len(overlap), allow, "、".join(overlap)))
     else:
         ok("C10 亮点重复", "亮点与标题零实义词重叠")
@@ -581,9 +789,14 @@ def main():
 
     if st_cfg.get("title_forbid_all_caps", True):
         minlen = st_cfg.get("title_all_caps_min_len", 4)
+        # caps_allow 原先无人读：RV / PC / UV / BPA / ABS 这类行业通用缩写会被告警。
+        # 豁免表在 copy_config.disallowed.caps_allow，与颜色词同属配置真源。
+        allow_caps = set(str(x).lower() for x in dis.get("caps_allow", []))
         for w in re.findall(r"[A-Za-z][A-Za-z'\-]*", title):
             core = re.sub(r"[^A-Za-z]", "", w)
             if len(core) >= minlen and core.isupper() and core.lower() != brand:
+                if core.lower() in allow_caps:
+                    continue
                 hard.append(("全大写", w))
 
     for ch in st_cfg.get("title_forbid_special_chars", []):
@@ -709,7 +922,7 @@ def report(outdir, cfg, no_write):
         # 表头中文、机器键英文（与 SP-01 一致：id/指标用英文，说明列用中文）
         cols = [("keyword", "keyword"), ("prio", "prio"), ("W", "W"), ("covered", "是否覆盖"),
                 ("where", "落位字段"), ("form", "命中形式"), ("layer", "词层级"),
-                ("reason", "未覆盖归因"), ("verdict", "判定")]
+                ("reason", "未覆盖归因"), ("audit", "归因可核"), ("verdict", "判定")]
         w = csv.writer(f)
         w.writerow([c[1] for c in cols])
         for row in COVER:
