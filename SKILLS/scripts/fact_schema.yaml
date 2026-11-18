@@ -537,6 +537,6 @@ selfcheck:
     name: 英文主张不得含中文
     type: forbidden_when
     when: "True"
-    pattern: '[一-鿿]'
+    pattern: '[一-龥]'
     scope: claim_v2
     message: 事实卡的中文取值没有进 enums 表，claim 里混进了中文
