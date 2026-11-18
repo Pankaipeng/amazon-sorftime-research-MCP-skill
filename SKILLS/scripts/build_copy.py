@@ -82,6 +82,13 @@ def main():
     if not check["executed"]:
         print("自检未执行：先跑 check_copy.py --category %s，再跑 build" % args.category)
         return 2
+    # 2026-11-18 补前置校验：CP-01 词位表是人工设计产物，check_copy 不生成它。
+    # 原先直到读完 CP-02/粘贴稿/CP-05/CP-06 才在第 217 行读 CP-01，缺文件时
+    # FileNotFoundError 直接崩在写盘中途，留下四份已写、xlsx 未写的半成品目录。
+    pos_path = outdir / out.get("placement", "CP-01-词位分配.csv")
+    if not pos_path.exists():
+        print("缺词位表：%s\n先按 SKILL 执行顺序第 2 步产出 CP-01（人工设计，脚本不代生成），再跑 build。" % pos_path)
+        return 2
     n_fail = sum(1 for r in check["items"] if r[0] == "FAIL")
 
     d = json.load(open(src, encoding="utf-8"))
@@ -174,7 +181,7 @@ def main():
         ["", ""],
         ["confidence", "MEASURED=接口直出 / DERIVED=由数据算出（公式写在 CP-05 依据列）/ JUDGED=人的判断"],
         ["口径限制", "覆盖率按词干匹配，复数与连字符算同词；W 是 searches×R 的加权分，不能当月搜索量报"],
-        ["已知缺口", "承重、卡扣材质、吸盘直径三项事实卡为空 → lbs 全篇禁用，两条卖点（强吸附、卡扣耐用）落不进文案"],
+        ["已知缺口", cfg["meta"].get("known_gap", "见 00-事实卡.json 的 _unknown 与 _decisions 两段")],
         ["", ""],
         ["自检结论", "%s ｜ %s" % (check["verdict"], check["conclusion"])],
         ["问题清单", "05_问题清单 只有表头 = 本轮 0 条违规，不是没执行；有违规时每行给出 等级 / 检查项 / 位置 / 原文 / 问题 / 建议"],
@@ -214,7 +221,7 @@ def main():
 
     sheet("01_上架稿", ["字段", "English", "文案", "字符数", "官方上限", "建议上限", "余量(官方)", "使用位置"],
           rows, {"字段": 18, "English": 18, "文案": 110, "使用位置": 18})
-    pos = read_csv(outdir / "CP-01-词位分配.csv")
+    pos = read_csv(pos_path)
     sheet("02_词位分配", list(pos[0].keys()), [list(r.values()) for r in pos],
           {"落位词": 34, "说明": 46, "新增覆盖的搜索词": 60})
     sheet("03_覆盖清单", list(cov[0].keys()) if cov else [],
