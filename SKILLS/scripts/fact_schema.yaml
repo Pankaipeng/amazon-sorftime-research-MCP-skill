@@ -111,13 +111,12 @@ required_soft:
   - {path: package.spare_suction,         label: 备用吸盘数量,      missing_effect: SP22 已 DEPRECATE，无影响}
 
 # ---------------------------------------------------------------- D 分档
-# 冲突 6 裁决：全项目统一 vendor 四档。按 min 降序匹配，命中即取。
-# cov == 0 → 1.00；0 < cov < 0.30 → 0.70；0.30 ≤ cov < 0.60 → 0.40；cov ≥ 0.60 → 0.10
-d_tiers:
-  - {min: 0.60, d: 0.10, note: 人手一份，等于没有}
-  - {min: 0.30, d: 0.40, note: 3-6 成竞品在写}
-  - {min: 0.0001, d: 0.70, note: 不到 3 成，算真差异}
-  - {min: 0.00, d: 1.00, note: 只有本品有}
+# ⚠ 本文件不再定义 d_tiers（2026-11-18 删除）。
+# 原先这里和 sp_config.yaml 各写一份四档表，值相同，但 check_facts.py 只读 sp_config 那份
+# ——改本文件的 d_tiers 静默无效，属死配置。项目自己的规矩：同一口径写两处，
+# 下一轮 AI 会随机挑一个执行（见 skills/modules/_common/政策边界.md §五）。
+# 真源唯一：skills/scripts/sp_config.yaml 的 d_tiers（vendor 四档）
+#   cov == 0 → 1.00；0 < cov < 0.30 → 0.70；0.30 ≤ cov < 0.60 → 0.40；cov ≥ 0.60 → 0.10
 
 # ---------------------------------------------------------------- 等级重算
 # BLOCKED / CONFLICT / DEPRECATE 一律降 D：事实不支持，写了就是虚标。
@@ -538,6 +537,6 @@ selfcheck:
     name: 英文主张不得含中文
     type: forbidden_when
     when: "True"
-    pattern: '[\u4e00-\u9fa5]'
+    pattern: '[一-鿿]'
     scope: claim_v2
     message: 事实卡的中文取值没有进 enums 表，claim 里混进了中文
