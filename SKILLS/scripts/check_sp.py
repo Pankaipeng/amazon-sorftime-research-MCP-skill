@@ -12,7 +12,7 @@
   6 覆盖可回查   证据链里五点命中的 ASIN 数 = 主表覆盖ASIN数
   7 无空证据     证据链每行的原文非空，且五点原文能在源文件里找到
 
-用法：python check_sp.py [--dir 输出目录]
+用法：python check_sp.py [--config sp_config.yaml] [--dir 输出目录]
 """
 
 import argparse
@@ -45,10 +45,12 @@ def read_csv(path):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default=str(Path(__file__).with_name("sp_config.yaml")))
     ap.add_argument("--dir", default=None)
     args = ap.parse_args()
 
-    cfg = yaml.safe_load(open(Path(__file__).parent / "sp_config.yaml", encoding="utf-8"))
+    CASES.clear()
+    cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
     outdir = Path(args.dir) if args.dir else ROOT / cfg["outputs"]["dir"]
 
     need = ["SP-01-卖点库.csv", "SP-02-证据链.csv", "SP-03-五点拆解矩阵.csv",
@@ -57,8 +59,7 @@ def main():
     missing = [f for f in need if not (outdir / f).exists()]
     if missing:
         fail("0 文件齐备", f"缺文件：{missing}")
-        report(outdir)
-        return 1
+        return report(outdir)
 
     main_rows = read_csv(outdir / "SP-01-卖点库.csv")
     evi_rows = read_csv(outdir / "SP-02-证据链.csv")
@@ -67,12 +68,13 @@ def main():
     # ---------------- 1 字段完整
     hdr = set(main_rows[0].keys()) if main_rows else set()
     required = {"sp_id", "卖点名", "英文主张", "五点覆盖", "覆盖ASIN数", "好评验证条数",
-                "差评条数", "M", "G机会分", "角色", "等级", "证据维度", "confidence"}
+                "差评条数", "M", "G机会分", "角色", "等级", "证据维度", "confidence", "冲突"}
     miss = required - hdr
-    ids = [r["sp_id"] for r in main_rows]
     if miss:
         fail("1 字段完整", f"主表缺列：{sorted(miss)}")
-    elif len(ids) != len(set(ids)):
+        return report(outdir)
+    ids = [r["sp_id"] for r in main_rows]
+    if len(ids) != len(set(ids)):
         fail("1 字段完整", "sp_id 有重复")
     elif any(r["等级"] not in ("A", "B", "C", "D") for r in main_rows):
         fail("1 字段完整", "等级出现 A/B/C/D 之外的值")
@@ -182,7 +184,8 @@ def report(outdir):
     lines.append("" if fails else "结论：全部通过，可以交付。")
     text = "\n".join(lines)
     print(text)
-    (outdir / "08-卖点库自检.txt").write_text(text + "\n", encoding="utf-8")
+    if outdir.is_dir():
+        (outdir / "08-卖点库自检.txt").write_text(text + "\n", encoding="utf-8")
     return 0 if not fails else 1
 
 

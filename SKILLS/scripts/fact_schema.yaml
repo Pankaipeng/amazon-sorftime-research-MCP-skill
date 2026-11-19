@@ -14,7 +14,7 @@ meta:
   owner_brand: nieifi
   fact_card: 调研/sponge-holder/00-事实卡.json
   library_v1: 调研/sponge-holder/selling-point/SP-01-卖点库.csv
-  sp_config: skills/scripts/sp_config.yaml
+  sp_config: SKILLS/scripts/sp_config.yaml
 
 outputs:
   judge: 调研/sponge-holder/selling-point/SP-08-事实核对.csv
@@ -115,7 +115,7 @@ required_soft:
 # 原先这里和 sp_config.yaml 各写一份四档表，值相同，但 check_facts.py 只读 sp_config 那份
 # ——改本文件的 d_tiers 静默无效，属死配置。项目自己的规矩：同一口径写两处，
 # 下一轮 AI 会随机挑一个执行（见 skills/modules/_common/政策边界.md §五）。
-# 真源唯一：skills/scripts/sp_config.yaml 的 d_tiers（vendor 四档）
+# 真源唯一：SKILLS/scripts/sp_config.yaml 的 d_tiers（vendor 四档）
 #   cov == 0 → 1.00；0 < cov < 0.30 → 0.70；0.30 ≤ cov < 0.60 → 0.40；cov ≥ 0.60 → 0.10
 
 # ---------------------------------------------------------------- 等级重算
@@ -140,13 +140,15 @@ sp_rules:
       suction_qty: material.suction.qty
       suction_mat: material.suction.material
       suction_dia: material.suction.dia_in
+      suction_mount: "'Dual suction cup' if suction_qty == 2 else 'Suction cup'"
     cases:
       - {status: BLOCKED,   where: "suction_qty is None", reason: "缺吸盘数量"}
-      - {status: DOWNGRADE, where: "suction_dia is None", reason: "有吸盘但缺直径，不能写吸附力，只能写 dual suction cup"}
+      - {status: CONFLICT,  where: "suction_qty <= 0", reason: "本品没有吸盘，吸盘安装主张不成立"}
+      - {status: DOWNGRADE, where: "suction_dia is None", reason: "有吸盘但缺直径，只能写吸盘安装结构"}
       - {status: CONFIRMED, where: "True",                reason: "{suction_qty} 个 {suction_mat} 吸盘，Ø{suction_dia} in"}
     claims:
-      CONFIRMED: "Dual suction cups grip smooth sink walls"
-      DOWNGRADE: "Dual suction cup mounting"
+      CONFIRMED: "{suction_mount} mounting for smooth sink walls"
+      DOWNGRADE: "{suction_mount} mounting"
       BLOCKED: "—"
 
   - id: SP02
