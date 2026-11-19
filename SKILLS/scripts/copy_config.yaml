@@ -202,9 +202,9 @@ decisions:
   # 判定用「删除测试」：删掉重复词后句子仍成立 → 是凑索引，删；读不懂/信息缺失 → 表意必需，留。
   #   C10 只判数量上限；删除测试本身脚本做不了，属 08 §六人工项。
   highlight_repeat_max: 2
-  # 【写作参数·脚本不读】亮点第 1 个短语必须是 D 分最高的差异化特性（移动端只露开头一小段）。
-  #   D 值在卖点库 v2 里，check_copy 不读卖点库，故无法机器校验——写的时候自查。
-  highlight_first_phrase: differentiation
+  # 【写作参数·脚本不读】亮点首段参考 40 的评论卖点拆解及本品事实。
+  #   首段选择由生成 Skill 判断，脚本校验亮点结构和长度。
+  highlight_first_phrase: buyer_decision
   # 【自检阈值】亮点短语数（逗号分隔段数）与单段词数。少于 3 段信息不够，多于 5 段读起来像参数表。
   # 注意：短语内部的列举也会用逗号（fits glass, tile and steel），所以段数按切分数算，区间放宽即可。
   highlight_phrase_min: 3
