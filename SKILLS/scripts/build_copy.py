@@ -26,7 +26,7 @@ import yaml
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from check_copy import read_fab, read_selling_point_scores
+from check_copy import read_fab, read_selling_point_scores, score_bullet_plan
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -84,7 +84,7 @@ def main():
     scores_input = cfg["inputs"].get("selling_point_library")
     translation_required = cfg.get("decisions", {}).get("bullet_translation_required", False)
     semantic_required = cfg.get("decisions", {}).get("bullet_semantic_review_required", False)
-    if fab_input or scores_input or translation_required or semantic_required:
+    if fab_input or scores_input or translation_required or semantic_required or cfg.get("bullet_selection"):
         result = subprocess.run([
             sys.executable, str(Path(__file__).with_name("check_copy.py")),
             "--category", args.category, "--config", args.config,
@@ -285,7 +285,7 @@ def main():
     translations = d.get("bullet_translations")
     if fab is not None or scores is not None or translations:
         columns = ["可用措辞", "本品事实", "市场证据定位", "验证缺口"] if fab is not None else []
-        score_columns = ["M 分（降序）", "排序来源"] if scores is not None else []
+        score_columns = ["M 分（参考）", "分数来源"] if scores is not None else []
         copy_columns = ["英文五点原文", "中文对照"] if translations else []
         evidence_rows = []
         point_ids = d.get("bullet_sp_ids") or [""] * len(bullets)
@@ -295,7 +295,7 @@ def main():
             bilingual = [bullets[index - 1], translations[index - 1]] if translations else []
             evidence_rows.append([index, point_id, *ranking, *bilingual, *card])
         widths = {column: 50 for column in [*copy_columns, *columns]}
-        widths.update({"五点顺序": 10, "卖点 ID": 10, "排序来源": 36, "英文五点原文": 53})
+        widths.update({"五点顺序": 10, "卖点 ID": 10, "分数来源": 36, "英文五点原文": 53})
         evidence = sheet("07_卖点依据", ["五点顺序", "卖点 ID", *score_columns, *copy_columns, *columns],
                          evidence_rows, widths)
         evidence.freeze_panes = "C2"
@@ -314,6 +314,21 @@ def main():
         semantic_sheet = sheet("08_五点语义去重", ["卖点 A", "买家利益 A", "卖点 B", "买家利益 B", "独立性依据"],
                                pairs, {"买家利益 A": 39, "买家利益 B": 39, "独立性依据": 54})
         for cells in semantic_sheet.iter_rows(min_row=2):
+            for cell in cells:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    rules = cfg.get("bullet_selection")
+    if rules is not None:
+        plan_scores = score_bullet_plan(d, rules)
+        plan_sheet = sheet("09_选点与排序",
+                           ["位置", "卖点 ID", "默认职责", "实际职责", "购买问题", "新增信息",
+                            "购买决策价值", "新增信息量", "差异化", "50选点分", "位置理由"],
+                           [[i, row["sp_id"], slot, row["role"], row["buyer_question"], row["new_information"],
+                             row["purchase_value"], row["new_information_value"], row["differentiation"],
+                             score, row["placement_reason"]]
+                            for i, (slot, row, score) in enumerate(zip(rules["slots"], d["bullet_plan"], plan_scores), 1)],
+                           {"购买问题": 34, "新增信息": 38, "位置理由": 48})
+        for cells in plan_sheet.iter_rows(min_row=2):
             for cell in cells:
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
 

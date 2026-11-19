@@ -138,6 +138,7 @@ def test_copy_scoring_and_delivery(tmp_path):
     del config["inputs"]["selling_point_library"]
     del config["decisions"]["bullet_translation_required"]
     del config["decisions"]["bullet_semantic_review_required"]
+    del config["bullet_selection"]
     del config["fields"]["st"]["target_min_ratio"]
     data = {
         "title": "Acme Stainless Steel Sponge Holder",

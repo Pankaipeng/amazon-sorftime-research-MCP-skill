@@ -177,7 +177,7 @@ def fpath(obj, dotted):
     return cur
 
 
-def audit_selected_points(selection, copy, expected_count, fab=None, selling_point_scores=None):
+def audit_selected_points(selection, copy, expected_count, fab=None, selling_point_scores=None, bullet_rules=None):
     if not isinstance(selection, dict) or not isinstance(selection.get("selected"), list):
         return "FAIL", "定稿卖点须包含 selected 数组"
     points = selection["selected"]
@@ -213,7 +213,7 @@ def audit_selected_points(selection, copy, expected_count, fab=None, selling_poi
         scores[point_id] = score
 
     if "bullet_sp_ids" not in copy:
-        if fab is not None or selling_point_scores is not None:
+        if fab is not None or selling_point_scores is not None or bullet_rules is not None:
             return "FAIL", "关联卖点库的文案须记录每条五点的 bullet_sp_ids"
         return "WARN", "旧稿缺 bullet_sp_ids，需逐点人工回查卖点 ID 和主张"
     assigned = copy["bullet_sp_ids"]
@@ -222,9 +222,41 @@ def audit_selected_points(selection, copy, expected_count, fab=None, selling_poi
             or any(not isinstance(point_id, str) or point_id not in scores for point_id in assigned)
             or len(set(assigned)) != expected_count):
         return "FAIL", "bullet_sp_ids 须与五点及定稿卖点一一对应"
+    if bullet_rules is not None:
+        try:
+            score_bullet_plan(copy, bullet_rules)
+        except ValueError as exc:
+            return "FAIL", str(exc)
+        return "PASS", "定稿卖点和五点 ID 对齐，已按 50 的五点计划核对"
     if any(scores[left] < scores[right] for left, right in zip(assigned, assigned[1:])):
         return "FAIL", "五点的 bullet_sp_ids 须按 M 降序排列"
     return "PASS", "定稿卖点和五点 ID 对齐且按 M 降序；主张措辞仍须逐点复核"
+
+
+def score_bullet_plan(copy, rules):
+    plan = copy.get("bullet_plan")
+    ids = copy.get("bullet_sp_ids", [])
+    if not isinstance(plan, list) or len(plan) != len(ids) or len(ids) != len(rules["slots"]):
+        raise ValueError("五点计划须覆盖所有五点及位置")
+    results = []
+    for row, point_id in zip(plan, ids):
+        if not isinstance(row, dict) or row.get("sp_id") != point_id:
+            raise ValueError("五点计划须与最终五点的 SP ID 和顺序一致")
+        if row.get("role") not in rules["slots"]:
+            raise ValueError("%s 缺有效五点职责" % point_id)
+        for key in ("buyer_question", "new_information", "placement_reason"):
+            if not isinstance(row.get(key), str) or not row[key].strip():
+                raise ValueError("%s 的五点计划缺 %s" % (point_id, key))
+        score = 0
+        for key, weight in rules["weights"].items():
+            value = row.get(key)
+            if type(value) is not int or not 0 <= value <= rules["max_rating"]:
+                raise ValueError("%s 的 %s 评分超出范围或缺失" % (point_id, key))
+            score += value * weight
+        if row["new_information_value"] == 0:
+            raise ValueError("%s 没有新增信息，应合并或换点" % point_id)
+        results.append(round(score / rules["max_rating"], 1))
+    return results
 
 
 def read_fab(path):
@@ -424,15 +456,16 @@ def main():
         selection = json.loads(sp_path.read_text(encoding="utf-8-sig"))
         fab = read_fab(fab_path) if fab_path is not None else None
         scores = read_selling_point_scores(scores_path) if scores_path is not None else None
-        status, detail = audit_selected_points(selection, copy, cfg["fields"]["bullet_count"]["max"], fab, scores)
+        bullet_rules = cfg.get("bullet_selection")
+        status, detail = audit_selected_points(selection, copy, cfg["fields"]["bullet_count"]["max"], fab, scores, bullet_rules)
         if status == "PASS" and fab is not None:
             problem = unsupported_fab_claim(copy, fab, cfg.get("fab_claim_patterns", {}))
             if problem:
                 status, detail = "FAIL", problem
             else:
-                detail = "定稿主张与 FAB 卡一致，五点 ID 按 M 降序；扩写仍须人工复核"
+                detail += "；定稿主张与 FAB 卡一致"
         if status == "PASS" and scores is not None:
-            detail += "；M 分已与卖点库 v2 核对"
+            detail += "；M 参考分已与卖点库 v2 核对"
         if status != "FAIL":
             problem = audit_bullet_translations(copy, cfg.get("decisions", {}).get("bullet_translation_required", False))
             if problem:

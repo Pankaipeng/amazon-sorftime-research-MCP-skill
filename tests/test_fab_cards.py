@@ -111,3 +111,32 @@ def test_semantic_review_blocks_duplicate_or_stale_bullets(monkeypatch):
     assert "1 对未检查" in audit_bullet_semantics(copy, required=True)
     review["pairs"].append({"sp_ids": review["sp_ids"], "verdict": "distinct", "reason": "分区收纳与排水各有用途"})
     assert audit_bullet_semantics(copy, required=True) is None
+
+
+def test_bullet_plan_uses_50_scores_and_accepts_installation_first(monkeypatch):
+    scripts = Path(__file__).resolve().parents[1] / "SKILLS/scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    from check_copy import audit_selected_points, load_yaml, score_bullet_plan
+
+    rules = load_yaml(scripts / "copy_config.yaml")["bullet_selection"]
+    rules["slots"] = rules["slots"][:2]
+    ids = ["SP03", "SP11"]
+    selection = {"selected": [
+        {"sp_id": point_id, "claim": "Supported claim", "fact_status": "CONFIRMED", "M": m}
+        for point_id, m in zip(ids, [29.1, 54.0])
+    ]}
+    plan = [
+        {"sp_id": point_id, "role": role, "buyer_question": question, "new_information": fact,
+         "placement_reason": question, "purchase_value": 4, "new_information_value": info,
+         "differentiation": difference}
+        for point_id, role, question, fact, info, difference in [
+            ("SP03", "核心差异化", "能装在哪里？", "吸盘用于水槽内壁", 4, 3),
+            ("SP11", "核心功能", "刷具怎么放？", "独立刷位", 2, 1),
+        ]
+    ]
+    copy = {"bullet_sp_ids": ids, "bullets": ["Mount in the sink", "A spot for the brush"], "bullet_plan": plan}
+    assert score_bullet_plan(copy, rules) == [95.0, 67.5]
+    assert audit_selected_points(selection, copy, 2, bullet_rules=rules)[0] == "PASS"
+    assert audit_selected_points(selection, {**copy, "bullet_plan": plan[::-1]}, 2, bullet_rules=rules)[0] == "FAIL"
+    plan[1]["new_information_value"] = 0
+    assert "没有新增信息" in audit_selected_points(selection, copy, 2, bullet_rules=rules)[1]
