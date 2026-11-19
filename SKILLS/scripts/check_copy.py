@@ -29,6 +29,7 @@
 
 import argparse
 import csv
+from itertools import combinations
 import json
 import math
 import re
@@ -265,6 +266,43 @@ def audit_bullet_translations(copy, required):
     return None
 
 
+def audit_bullet_semantics(copy, required):
+    if not required and "bullet_semantic_review" not in copy:
+        return None
+    review = copy.get("bullet_semantic_review")
+    ids = copy.get("bullet_sp_ids") or []
+    bullets = copy.get("bullets") or []
+    if (not isinstance(review, dict) or len(ids) != len(bullets)
+            or review.get("sp_ids") != ids or review.get("bullets") != bullets):
+        return "五点语义审查缺失或成稿已变动，须按当前英文五点和 SP ID 重审"
+    benefits = review.get("buyer_benefits")
+    if (not isinstance(benefits, list) or len(benefits) != len(ids)
+            or any(not isinstance(text, str) or not text.strip() for text in benefits)):
+        return "五点语义审查须逐条提炼买家主要利益"
+    if len({text.strip().casefold() for text in benefits}) != len(ids):
+        return "两条五点使用了相同的买家主要利益"
+    pairs = review.get("pairs")
+    pending = set(combinations(ids, 2))
+    if not isinstance(pairs, list):
+        return "五点语义审查缺少逐对判断"
+    for row in pairs:
+        keys = row.get("sp_ids") if isinstance(row, dict) else None
+        if not isinstance(keys, list) or len(keys) != 2 or any(not isinstance(key, str) for key in keys):
+            return "五点语义审查中的 SP ID 对无效"
+        pair = tuple(keys)
+        if pair not in pending:
+            return "五点语义审查存在重复、逆序或无效的 SP ID 对"
+        if row.get("verdict") != "distinct":
+            return "%s 与 %s 的买家利益需去重后再交付" % pair
+        reason = row.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            return "%s 与 %s 缺少独立利益的判断依据" % pair
+        pending.remove(pair)
+    if pending:
+        return "五点语义审查尚有 %d 对未检查" % len(pending)
+    return None
+
+
 def unsupported_fab_claim(copy, fab, patterns):
     for field in ("title", "highlights", "bullets", "description", "search_terms"):
         value = copy.get(field) or ""
@@ -399,6 +437,13 @@ def main():
             problem = audit_bullet_translations(copy, cfg.get("decisions", {}).get("bullet_translation_required", False))
             if problem:
                 status, detail = "FAIL", problem
+        if status != "FAIL":
+            semantic_required = cfg.get("decisions", {}).get("bullet_semantic_review_required", False)
+            problem = audit_bullet_semantics(copy, semantic_required)
+            if problem:
+                status, detail = "FAIL", problem
+            elif copy.get("bullet_semantic_review"):
+                detail += "；五点语义审查已覆盖最终成稿"
     except (ValueError, OSError) as exc:
         status, detail = "FAIL", "无法读取定稿卖点、FAB 卡或卖点库 v2：%s" % exc
     CASES.append((status, "C0 输入与定稿卖点", detail))

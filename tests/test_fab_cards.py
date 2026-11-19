@@ -87,3 +87,27 @@ def test_search_term_limits_and_frontend_deduplication(monkeypatch):
     assert any("须小于" in issue for issue in search_term_issues("x" * 250, "", limits))
     assert any("与前台重复" in issue for issue in search_term_issues("caddy drain", "Sink Caddy", limits))
     assert not search_term_issues("x" * 125, "", limits)
+
+
+def test_semantic_review_blocks_duplicate_or_stale_bullets(monkeypatch):
+    scripts = Path(__file__).resolve().parents[1] / "SKILLS/scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    from check_copy import audit_bullet_semantics
+
+    ids = ["SP11", "SP13"]
+    bullets = ["Sponge and brush in one holder", "A separate spot for each washing tool"]
+    copy = {"bullet_sp_ids": ids, "bullets": bullets}
+    assert "缺失" in audit_bullet_semantics(copy, required=True)
+    pair = {"sp_ids": ids, "verdict": "duplicate", "reason": "两条均讲洗刷工具的分区收纳"}
+    review = {"sp_ids": ids, "bullets": bullets, "buyer_benefits": ["洗刷工具集中收纳", "洗刷工具分区放置"],
+              "pairs": [pair]}
+    copy["bullet_semantic_review"] = review
+    assert "需去重" in audit_bullet_semantics(copy, required=True)
+    assert "已变动" in audit_bullet_semantics({**copy, "bullets": [bullets[0], "Open drainage"]}, required=True)
+
+    review = {"sp_ids": ["SP11", "SP17"], "bullets": [bullets[0], "Bottom openings let water drain"],
+              "buyer_benefits": ["洗刷工具集中收纳", "湿工具滴水有出口"], "pairs": []}
+    copy = {"bullet_sp_ids": review["sp_ids"], "bullets": review["bullets"], "bullet_semantic_review": review}
+    assert "1 对未检查" in audit_bullet_semantics(copy, required=True)
+    review["pairs"].append({"sp_ids": review["sp_ids"], "verdict": "distinct", "reason": "分区收纳与排水各有用途"})
+    assert audit_bullet_semantics(copy, required=True) is None
