@@ -125,7 +125,7 @@ copy/
 
 规则层只回答"有没有违规"，不回答"内容质量值几分"。补这一块用的是外部项目，不自己造分。
 
-**来源**：[amazon-listing-doctor](https://github.com/buluslan/amazon-listing-doctor) v0.4.12，MIT，原样放在 `skills/vendor/amazon-listing-doctor/`，**未改一行代码**。版本、提交号、口径差异见该目录 `SOURCE.md`；`skills/README.md` 的「致谢」表有完整署名。
+**来源**：[amazon-listing-doctor](https://github.com/buluslan/amazon-listing-doctor) v0.4.12，MIT，原样放在 `SKILLS/skills/amazon-listing-doctor/`，**未改一行代码**。版本、提交号、口径差异见该目录 `SOURCE.md`；`skills/README.md` 的「致谢」表有完整署名。
 
 **接入方式**：只搬格式。`skills/scripts/score_copy.py` 把 `copy.json` 归一化成它的输入格式（`CP-07a-评分输入.json`），调它的 `compliance_report.py`，把输出摊平成 `CP-07-评分明细.csv`。工具缺失时 `04_评分` 写真「未执行」并继续，不拦主流程——**第三方工具不该成为交付的单点故障**。
 

@@ -85,7 +85,7 @@ L2 覆盖层   整短语优先；同簇合句；跨字段不重复      → 违�
 7. **跑自检**：`python skills/scripts/check_copy.py --category {cat}`。退出码非 0 不许交。全绿之后还要过 `08-自检清单.md` §六的 6 条人工项——脚本查不了语义重复，全绿不等于能交。
 8. **补覆盖理由**。`CP-03-覆盖清单.csv` 里 P1 未覆盖且无理由的，回填 `coverage_reasons` 后重跑。
 9. **出报告与交接**。`文案报告.md` 按 `_common/输出规范.md` 的骨架写（口径声明 / 主结论 3 条以内 / 明细表带 confidence / 缺失与不确定），再写 `90-main-image交接单.md` 给下游。
-10. **跑第三方体检**：`python skills/scripts/score_copy.py --category {cat}`。它把 `copy.json` 归一化成 `CP-07a-评分输入.json`，调 `skills/vendor/amazon-listing-doctor/`（MIT，见该目录 `SOURCE.md`），输出 `CP-07-评分明细.csv`。**它报的问题要逐条判，不是逐条改**——标题/亮点"未用满"这类建议与本国口径冲突，按 `文案报告.md` §2.7 的三条不采纳理由处理。工具缺失时评分表标「未执行」，不拦主流程。
+10. **跑第三方体检**：`python skills/scripts/score_copy.py --category {cat}`。它把 `copy.json` 归一化成 `CP-07a-评分输入.json`，调 `SKILLS/skills/amazon-listing-doctor/`（MIT，见该目录 `SOURCE.md`），输出 `CP-07-评分明细.csv`。**它报的问题要逐条判，不是逐条改**——标题/亮点"未用满"这类建议与本国口径冲突，按 `文案报告.md` §2.7 的三条不采纳理由处理。工具缺失时评分表标「未执行」，不拦主流程。
 11. **交付**。顺序固定：`check_copy.py`（写 08 / CP-03 / CP-04）→ `score_copy.py`（写 CP-07 三件）→ `build_copy.py --category {cat} --sku {sku}`（写 CP-02 / 粘贴稿 / CP-05 / CP-06 / 文案.xlsx / _summary.json）。**这三份脚本产物不许手写**，字符数一改就漂。
 
 首次跑通前还要做一件事：`python skills/scripts/check_facts.py` 的自检必须过——**例外是 C1 里由 `dims.outer_in` 三项引起的骨架缺失**，那是 2026-11-18 用户裁定「卖点不需要三维」后的已知长期 FAIL，不是缺陷，不用为了变绿去补包装值。除此之外的任何 FAIL（尤其 C2-C5 的事实冲突）都要先解决再写文案，否则事实层没立住，写了也要返工。

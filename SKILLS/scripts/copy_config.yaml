@@ -40,7 +40,7 @@ outputs:
   mult_sku:  CP-06-多SKU汇总.csv
   xlsx:      文案.xlsx
   summary:   _summary.json
-  # 体检评分（第三方 amazon-listing-doctor，见 skills/vendor/amazon-listing-doctor/SOURCE.md）
+  # 体检评分（第三方 amazon-listing-doctor，见 SKILLS/skills/amazon-listing-doctor/SOURCE.md）
   score_listing: CP-07a-评分输入.json
   score_detail:  CP-07-评分明细.csv
   score_raw:     CP-07b-评分原始.json
@@ -50,7 +50,7 @@ outputs:
 # 调 vendor 里的 compliance_report.py，输出摊平成 CP-07。工具缺失或报错时评分表标「未执行」，
 # 不影响主流程与 08 自检。
 score:
-  tool: skills/vendor/amazon-listing-doctor/scripts/compliance_report.py
+  tool: SKILLS/skills/amazon-listing-doctor/scripts/compliance_report.py
   ref: https://github.com/buluslan/amazon-listing-doctor
   version: v0.4.12
   market: US
