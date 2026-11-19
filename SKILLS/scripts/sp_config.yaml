@@ -123,7 +123,7 @@ conflict:
 # ---------------------------------------------------------------- 图片维度
 # 本轮降级：沙箱无外网（curl m.media-amazon.com SSL 断），web_fetch 取 amazon.com/dp 返回
 # Access restricted，asin_detail 只给 1 张主图 URL 且无法读取。故图片维度标 DATA_MISSING，
-# 另出「待补图清单」给出采集口径，等图包到位后把 enabled 改 true 重跑。
+# 当前构建脚本不读取图包，开关保留为采集配置，图片维度计 0。
 image:
   enabled: false
   confidence: JUDGED

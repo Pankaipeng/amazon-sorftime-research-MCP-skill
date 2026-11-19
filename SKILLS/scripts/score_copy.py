@@ -18,6 +18,7 @@ import argparse
 import ast
 import csv
 import json
+import os
 import re
 import subprocess
 import sys
@@ -101,7 +102,9 @@ def main():
     listing_path.write_text(json.dumps(listing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     header = ["维度", "指标", "值", "等级/状态", "依据与说明"]
-    rows, meta_note = [], []
+    rows = []
+    raw_path = outdir / out["score_raw"]
+    raw_path.unlink(missing_ok=True)
 
     tool = ROOT / sc["tool"]
     if args.offline or not tool.exists():
@@ -113,17 +116,22 @@ def main():
         return 0
 
     # ---------- 2. 调体检工具 ----------
-    proc = subprocess.run([sys.executable, str(tool), "--file", str(listing_path)],
-                          capture_output=True, text=True, encoding="utf-8")
-    if not proc.stdout.strip():
+    try:
+        proc = subprocess.run([sys.executable, str(tool), "--file", str(listing_path)],
+                              capture_output=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+        if not proc.stdout.strip():
+            stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+            raise ValueError(stderr.splitlines()[-1] if stderr else "工具无输出")
+        # 工具发现不合规时退出 1，仍会返回完整的报告。
+        rep = json.loads(proc.stdout.decode("utf-8"))
+        if not isinstance(rep, dict) or not isinstance(rep.get("compliance_report"), dict):
+            raise ValueError("工具没有返回有效的合规报告")
+    except (OSError, ValueError) as exc:
         rows.append(["体检工具", "执行状态", "失败", "FAIL",
-                     (proc.stderr or "无输出").strip().splitlines()[-1][:160]])
+                     str(exc)[:160]])
         write_csv(outdir / out["score_detail"], header, rows)
-        print("评分失败：体检工具无输出")
+        print("评分失败：%s" % str(exc)[:160])
         return 0
-    rep = json.loads(proc.stdout)
-    (outdir / out["score_raw"]).write_text(
-        json.dumps(rep, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     # ---------- 3. 摊平 ----------
     cdq = rep.get("cdq_score", {})
@@ -237,6 +245,7 @@ def main():
                      % "、".join(w for w in words if w)[:150]])
 
     write_csv(outdir / out["score_detail"], header, rows)
+    raw_path.write_text(json.dumps(rep, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print("CDQ %s（%s）| 可用维度折算 %s | A9 %s | COSMO %s | 合规 %s 项失败 | 建议 %d 条"
           % (fmt_score(cdq.get("total")), cdq.get("grade"), fmt_score(derived),

@@ -17,6 +17,7 @@ import argparse
 import csv
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -24,6 +25,8 @@ import openpyxl
 import yaml
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+
+from check_copy import read_fab
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -75,13 +78,24 @@ def main():
     cfg = yaml.safe_load(open(args.config, encoding="utf-8"))
     out = {k: v.replace("{category}", args.category) for k, v in cfg["outputs"].items()}
     outdir = ROOT / out["dir"]
-    src = ROOT / cfg["inputs"]["copy"].replace("{category}", args.category)
-    lib = read_csv(ROOT / cfg["inputs"]["keyword_library"].replace("{category}", args.category))
-    cov = read_csv(outdir / out["coverage"])
+    fab = None
+    fab_input = cfg["inputs"].get("fab_cards")
+    if fab_input:
+        result = subprocess.run([
+            sys.executable, str(Path(__file__).with_name("check_copy.py")),
+            "--category", args.category, "--config", args.config,
+        ])
+        if result.returncode:
+            print("当前文案未通过自检，请先处理报告中的失败项。")
+            return result.returncode
+        fab = read_fab(ROOT / fab_input.replace("{category}", args.category))
     check = read_check(outdir / out["selfcheck"])
     if not check["executed"]:
         print("自检未执行：先跑 check_copy.py --category %s，再跑 build" % args.category)
         return 2
+    src = ROOT / cfg["inputs"]["copy"].replace("{category}", args.category)
+    lib = read_csv(ROOT / cfg["inputs"]["keyword_library"].replace("{category}", args.category))
+    cov = read_csv(outdir / out["coverage"])
     # 2026-11-18 补前置校验：CP-01 词位表是人工设计产物，check_copy 不生成它。
     # 原先直到读完 CP-02/粘贴稿/CP-05/CP-06 才在第 217 行读 CP-01，缺文件时
     # FileNotFoundError 直接崩在写盘中途，留下四份已写、xlsx 未写的半成品目录。
@@ -134,19 +148,25 @@ def main():
             continue
         where = covered[kw]["落位字段"]
         form = covered[kw]["命中形式"]
-        src_rows.append([kw, "searches", r["searches"], "—", "ss_mcp.keyword_miner",
-                         "US / 2026-10 / 卖家精灵月度", "MEASURED", where, form])
-        src_rows.append([kw, "W", r["W"], "searches × R，R=%s" % r["R"], "本项目自算",
-                         "词库 232 词", "DERIVED", where, form])
+        if r["searches"] and r.get("est") != "EST":
+            src_rows.append([kw, "searches", r["searches"], "—", "06-搜索量底表.csv",
+                             r.get("search_source") or "词库未记录接口与期次", "MEASURED", where, form])
+        if r["W"]:
+            formula = ("自动补全分 × R × EST 缩放系数" if r.get("est") == "EST"
+                       else "searches × R")
+            src_rows.append([kw, "W", r["W"], "%s，R=%s" % (formula, r["R"]), "keyword_library.csv",
+                             "词库 %d 词" % len(lib), "DERIVED", where, form])
     write_csv(outdir / out["sources"],
               ["keyword", "指标", "值", "公式/依据", "source", "sample", "confidence", "落位字段", "命中形式"],
               src_rows)
 
     # ---------- CP-06 多 SKU 汇总（一行一个 SKU，追加即复用） ----------
     agg = outdir / out["mult_sku"]
-    old = [r for r in read_csv(agg) if r.get("category") != args.category] if agg.exists() else []
+    old = [r for r in read_csv(agg)
+           if (r.get("category"), r.get("sku")) != (args.category, args.sku)] if agg.exists() else []
+    bullet_cells = (bullets + [""] * 5)[:5]
     agg_rows = [[args.category, args.sku, title, len(title), high, len(high),
-                 *bullets, st, len(st.encode("utf-8")), check["verdict"],
+                 *bullet_cells, st, len(st.encode("utf-8")), check["verdict"],
                  d.get("schema_version", ""), d.get("generated_at", "")]]
     cols = ["category", "sku", "title", "title_chars", "highlights", "highlights_chars",
             "bullet1", "bullet2", "bullet3", "bullet4", "bullet5",
@@ -164,6 +184,9 @@ def main():
     ws = wb.active
     ws.title = "00_说明"
     bl = [len(b) for b in bullets]
+    shortest_bullet = min(bl, default=0)
+    longest_bullet = max(bl, default=0)
+    average_bullet = sum(bl) // len(bl) if bl else 0
     note = [
         ["文案", "%s · %s · %s" % (meta["category_name"], meta["marketplace"], meta["date"])],
         ["", ""],
@@ -175,7 +198,7 @@ def main():
         ["ST 排序", "只放前台四字段未覆盖的词；后台不参与前台排名，堆已覆盖词是浪费字节"],
         ["", ""],
         ["字符口径", "标题 %d/75、亮点 %d/125、五点 %d-%d（均值 %d，官方硬上限 %d）、ST %d/250 字节"
-         % (len(title), len(high), min(bl), max(bl), sum(bl) // len(bl),
+         % (len(title), len(high), shortest_bullet, longest_bullet, average_bullet,
             f["bullet"]["hard_max"], len(st.encode("utf-8")))],
         ["词库", cfg["meta"].get("keyword_note", "见口径声明")],
         ["", ""],
@@ -251,6 +274,15 @@ def main():
                {"等级": 24, "检查项": 24, "说明": 110}, mark_col="等级")
     s5.auto_filter.ref = None          # 首行是结论不是表头，不适合当筛选器
 
+    if fab is not None:
+        columns = ["可用措辞", "本品事实", "市场证据定位", "验证缺口"]
+        evidence_rows = [
+            [index, point_id, *(fab[point_id].get(column, "") for column in columns)]
+            for index, point_id in enumerate(d["bullet_sp_ids"], 1)
+        ]
+        sheet("07_卖点依据", ["五点顺序", "卖点 ID", *columns], evidence_rows,
+              {column: 55 for column in columns})
+
     xlsx = outdir / out["xlsx"]
     wb.save(xlsx)
 
@@ -282,7 +314,7 @@ def main():
         json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print("标题 %d/75 | 亮点 %d/125 | 五点 %d-%d（均值 %d）| ST %d/250 字节"
-          % (len(title), len(high), min(bl), max(bl), sum(bl) // len(bl),
+          % (len(title), len(high), shortest_bullet, longest_bullet, average_bullet,
              len(st.encode("utf-8"))))
     print("覆盖 %d 词（P0 %d / P1 %d / P2 %d），问题 %d 条"
           % (len(cov), prio.get("P0", 0), prio.get("P1", 0), prio.get("P2", 0), len(issues)))

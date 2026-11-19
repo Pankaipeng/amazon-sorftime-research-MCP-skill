@@ -30,11 +30,14 @@
 import argparse
 import csv
 import json
+import math
 import re
 import sys
 from pathlib import Path
 
 import yaml
+
+from fact_provenance import outer_dimensions_from_packaging
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 # emoji 与常见符号图形，官方要点 requirements 页明列禁项
@@ -173,6 +176,73 @@ def fpath(obj, dotted):
     return cur
 
 
+def audit_selected_points(selection, copy, expected_count, fab=None):
+    if not isinstance(selection, dict) or not isinstance(selection.get("selected"), list):
+        return "FAIL", "定稿卖点须包含 selected 数组"
+    points = selection["selected"]
+    if len(points) != expected_count:
+        return "FAIL", "定稿卖点应有 %d 条，实际 %d 条" % (expected_count, len(points))
+
+    scores = {}
+    for point in points:
+        if not isinstance(point, dict):
+            return "FAIL", "selected 的每一项须为卖点对象"
+        point_id, claim, score = (point.get(key) for key in ("sp_id", "claim", "M"))
+        if not isinstance(point_id, str) or not re.fullmatch(r"SP\d+", point_id) or point_id in scores:
+            return "FAIL", "定稿卖点 ID 无效或重复：%s" % point_id
+        if not isinstance(claim, str) or not claim.strip() or claim.strip() == "—":
+            return "FAIL", "%s 缺可用主张" % point_id
+        if point.get("fact_status") not in ("CONFIRMED", "REWRITE", "DOWNGRADE"):
+            return "FAIL", "%s 的事实核对状态不允许作为定稿卖点" % point_id
+        if fab is not None:
+            card = fab.get(point_id, {})
+            if card.get("使用状态") != "可用":
+                return "FAIL", "%s 的 FAB 状态为 %s" % (point_id, card.get("使用状态", "无卡片"))
+            if claim.strip() != card.get("可用措辞", "").strip():
+                return "FAIL", "%s 的定稿主张须与 FAB 卡可用措辞一致" % point_id
+        if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score):
+            return "FAIL", "%s 缺有效 M 分" % point_id
+        scores[point_id] = score
+
+    if "bullet_sp_ids" not in copy:
+        if fab is not None:
+            return "FAIL", "使用 FAB 卡的文案须记录每条五点的 bullet_sp_ids"
+        return "WARN", "旧稿缺 bullet_sp_ids，需逐点人工回查卖点 ID 和主张"
+    assigned = copy["bullet_sp_ids"]
+    if (not isinstance(assigned, list) or len(assigned) != len(copy.get("bullets") or [])
+            or len(assigned) != expected_count
+            or any(not isinstance(point_id, str) or point_id not in scores for point_id in assigned)
+            or len(set(assigned)) != expected_count):
+        return "FAIL", "bullet_sp_ids 须与五点及定稿卖点一一对应"
+    if any(scores[left] < scores[right] for left, right in zip(assigned, assigned[1:])):
+        return "FAIL", "五点的 bullet_sp_ids 须按 M 降序排列"
+    return "PASS", "定稿卖点和五点 ID 对齐且按 M 降序；主张措辞仍须逐点复核"
+
+
+def read_fab(path):
+    cards = {}
+    for row in read_csv(path):
+        point_id = row.get("sp_id")
+        if (not point_id or point_id in cards or not row.get("使用状态")
+                or (row["使用状态"] == "可用" and not (row.get("可用措辞") or "").strip())):
+            raise ValueError("FAB 卡缺必填字段或存在重复 SP ID")
+        cards[point_id] = row
+    if not cards:
+        raise ValueError("FAB 卡没有数据")
+    return cards
+
+
+def unsupported_fab_claim(copy, fab, patterns):
+    for field in ("title", "highlights", "bullets", "description", "search_terms"):
+        value = copy.get(field) or ""
+        if isinstance(value, list):
+            value = " \n".join(value)
+        for point_id, pattern in patterns.items():
+            if fab.get(point_id, {}).get("使用状态") != "可用" and re.search(pattern, value, re.I):
+                return "%s 出现 %s 尚未获准的性能主张" % (field, point_id)
+    return None
+
+
 PATH_RE = re.compile(r"\b[a-z_]+(?:\.[a-z_]+){1,}\b")
 
 
@@ -243,6 +313,7 @@ def main():
     facts_path = ROOT / inp["facts"]
     lib_path = ROOT / inp["keyword_library"]
     sp_path = ROOT / inp["selected_sp"]
+    fab_path = ROOT / inp["fab_cards"] if inp.get("fab_cards") else None
 
     # ---------- C0 输入齐备 ----------
     missing = [str(p) for p in [copy_path, facts_path, lib_path, sp_path] if not p.exists()]
@@ -251,11 +322,24 @@ def main():
         # 输入不全时一律不落盘，避免在建错的目录里生出一堆空产物
         report(outdir, cfg, True)
         return 2
-    ok("C0 输入齐备", "copy.json / 事实卡 / 词库 / 定稿卖点 齐备")
-
     copy = json.load(open(copy_path, encoding="utf-8"))
     facts = json.load(open(facts_path, encoding="utf-8"))
     library = read_csv(lib_path)
+    try:
+        selection = json.loads(sp_path.read_text(encoding="utf-8-sig"))
+        fab = read_fab(fab_path) if fab_path is not None else None
+        status, detail = audit_selected_points(selection, copy, cfg["fields"]["bullet_count"]["max"], fab)
+        if status == "PASS" and fab is not None:
+            problem = unsupported_fab_claim(copy, fab, cfg.get("fab_claim_patterns", {}))
+            if problem:
+                status, detail = "FAIL", problem
+            else:
+                detail = "定稿主张与 FAB 卡一致，五点 ID 按 M 降序；扩写仍须人工复核"
+    except (ValueError, OSError) as exc:
+        status, detail = "FAIL", "无法读取定稿卖点或 FAB 卡：%s" % exc
+    CASES.append((status, "C0 输入与定稿卖点", detail))
+    if status == "FAIL":
+        issue("FAIL", "C0", sp_path.name, "", detail, "核对选定卖点文件和文案中的卖点 ID")
 
     title = copy.get("title") or ""
     high = copy.get("highlights") or ""
@@ -662,6 +746,8 @@ def main():
     if dim_hits and dims_missing:
         over.append("事实卡 %s 为 null，文案却出现尺寸：%s"
                     % ("、".join(p.split(".")[-1] for p in dims_missing), "、".join(dim_hits[:5])))
+    if dim_hits and not dims_missing and outer_dimensions_from_packaging(facts):
+        over.append("事实卡三围取自包装，文案却出现商品尺寸：%s" % "、".join(dim_hits[:5]))
     oz_hits = re.findall(r"\b\d+(?:\.\d+)?\s*(?:oz|ounces?)\b", frontend, re.I)
     if oz_hits and fpath(facts, "dims.net_weight_oz") is None:
         over.append("事实卡无净重，文案出现：%s" % "、".join(oz_hits[:5]))
