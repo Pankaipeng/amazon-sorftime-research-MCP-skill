@@ -224,6 +224,51 @@ def apply_a_grade_slots(judge_rows, library_rows, source_rows, slots):
         library["等级_note"] = "事实核对后 A 级名额已满，顺延 B"
 
 
+def write_fab_cards(path, library_rows, judgments, facts, definitions, evidence_path):
+    evidence = {}
+    if evidence_path.is_file():
+        with evidence_path.open(encoding="utf-8-sig", newline="") as stream:
+            for row in csv.DictReader(stream):
+                locator = f"{row['维度']} {row['定位']}"
+                evidence.setdefault(row["sp_id"], {}).setdefault(locator, None)
+    header = ["sp_id", "调研卖点", "主题", "主张角色", "使用状态", "F 特征", "A 优势", "B 买家利益",
+              "市场证据定位", "本品事实", "可用措辞", "验证缺口"]
+    with path.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(header)
+        for row, judgment in zip(library_rows, judgments):
+            sid = row["sp_id"]
+            card = definitions.get(sid, {})
+            requires = card.get("requires") or {}
+            grounded = bool(requires) and all(
+                get_path(facts, field) == expected for field, expected in requires.items()
+            )
+            role = row.get("主张角色", "")
+            gap = card.get("gap", "")
+            if role == "仅结构素材":
+                state = "仅结构素材"
+            elif judgment["fact_status"] not in ("CONFIRMED", "REWRITE"):
+                state = "待验证"
+                gap = "；".join(filter(None, [judgment["依据"], gap]))
+            elif not grounded or not all(card.get(key) for key in ("feature", "advantage", "benefit", "copy")):
+                state = "待编写或复核"
+                gap = "；".join(filter(None, [gap, "补齐 FAB 并核对本品事实前提"]))
+            else:
+                state = "可用"
+            publish = state == "可用"
+            links = evidence.get(sid, {})
+            locator = f"{evidence_path.name} · {sid} · " + " / ".join(links) if links else "未记录逐条市场证据"
+            fact_refs = "；".join(f"{field}={get_path(facts, field)}" for field in requires)
+            writer.writerow([
+                sid, row["卖点名"], row.get("主题", ""), role, state,
+                card.get("feature", "") if grounded and (publish or state == "仅结构素材") else "",
+                card.get("advantage", "") if publish else "",
+                card.get("benefit", "") if publish else "",
+                locator, fact_refs or f"{judgment['依赖字段']} · {judgment['事实取值']}",
+                card.get("copy", "") if publish else "", gap,
+            ])
+
+
 # ------------------------------------------------------------------ 自检
 def run_selfcheck(cfg, facts, rows, judge_rows):
     out = []
@@ -327,6 +372,7 @@ def main():
     tpl_weights = sp_cfg["weights"]
     tiers = sp_cfg["d_tiers"]
 
+    sp_defs = {item["id"]: item for item in sp_cfg.get("sp_defs", [])}
     judge_rows, lib_rows = [], []
     for rule in cfg["sp_rules"]:
         sid = rule["id"]
@@ -359,6 +405,11 @@ def main():
         g = P * (1 - cov)
 
         base_grade, final_grade, grade_note = grade_of(row, sp_cfg, cfg, status)
+        sp = sp_defs.get(sid, {})
+        claim_role = sp.get("claim_role", row.get("主张角色", ""))
+        if claim_role == "仅结构素材":
+            final_grade = "D"
+            grade_note = "仅供结构展示，不参与对外选点"
 
         jr = {
             "sp_id": sid,
@@ -392,6 +443,7 @@ def main():
         out["G机会分"] = round(g, 3)
         out["等级"] = final_grade
         out["等级_note"] = grade_note
+        out["主张角色"] = claim_role
         lib_rows.append(out)
 
     apply_a_grade_slots(judge_rows, lib_rows, by_id, sp_cfg["grades"]["A"]["slots"])
@@ -402,6 +454,7 @@ def main():
 
     # ---------------- 落盘
     outp = {k: p(v) for k, v in cfg["outputs"].items()}
+    outp.setdefault("fab", outp["library_v2"].with_name("SP-10-FAB卖点卡.csv"))
     if not args.no_write:
         for q in outp.values():
             q.parent.mkdir(parents=True, exist_ok=True)
@@ -423,6 +476,9 @@ def main():
             w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
             w.writeheader()
             w.writerows(lib_rows)
+
+        write_fab_cards(outp["fab"], lib_rows, judge_rows, facts, cfg.get("fab_claims", {}),
+                        lib_path.with_name("SP-02-证据链.csv"))
 
         total_m = sum(1 for j in judge_rows if abs(j["M变动"]) > 1e-9)
         with io.open(outp["selfcheck"], "w", encoding="utf-8") as f:
