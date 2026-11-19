@@ -135,6 +135,9 @@ def test_selling_point_and_facts(tmp_path):
 def test_copy_scoring_and_delivery(tmp_path):
     config = load_config("copy_config.yaml")
     del config["inputs"]["fab_cards"]
+    del config["inputs"]["selling_point_library"]
+    del config["decisions"]["bullet_translation_required"]
+    del config["fields"]["st"]["target_min_ratio"]
     data = {
         "title": "Acme Stainless Steel Sponge Holder",
         "highlights": "Rust resistant steel",

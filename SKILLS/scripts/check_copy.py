@@ -176,7 +176,7 @@ def fpath(obj, dotted):
     return cur
 
 
-def audit_selected_points(selection, copy, expected_count, fab=None):
+def audit_selected_points(selection, copy, expected_count, fab=None, selling_point_scores=None):
     if not isinstance(selection, dict) or not isinstance(selection.get("selected"), list):
         return "FAIL", "定稿卖点须包含 selected 数组"
     points = selection["selected"]
@@ -202,11 +202,18 @@ def audit_selected_points(selection, copy, expected_count, fab=None):
                 return "FAIL", "%s 的定稿主张须与 FAB 卡可用措辞一致" % point_id
         if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score):
             return "FAIL", "%s 缺有效 M 分" % point_id
+        if selling_point_scores is not None:
+            source = selling_point_scores.get(point_id)
+            if source is None:
+                return "FAIL", "%s 在卖点库 v2 中没有 M 分" % point_id
+            if score != source:
+                return "FAIL", "%s 的定稿 M 分 %g 与卖点库 v2 的 %g 不一致" % (point_id, score, source)
+            score = source
         scores[point_id] = score
 
     if "bullet_sp_ids" not in copy:
-        if fab is not None:
-            return "FAIL", "使用 FAB 卡的文案须记录每条五点的 bullet_sp_ids"
+        if fab is not None or selling_point_scores is not None:
+            return "FAIL", "关联卖点库的文案须记录每条五点的 bullet_sp_ids"
         return "WARN", "旧稿缺 bullet_sp_ids，需逐点人工回查卖点 ID 和主张"
     assigned = copy["bullet_sp_ids"]
     if (not isinstance(assigned, list) or len(assigned) != len(copy.get("bullets") or [])
@@ -230,6 +237,32 @@ def read_fab(path):
     if not cards:
         raise ValueError("FAB 卡没有数据")
     return cards
+
+
+def read_selling_point_scores(path):
+    scores = {}
+    for row in read_csv(path):
+        point_id = row.get("sp_id")
+        if not point_id or point_id in scores:
+            raise ValueError("卖点库 v2 缺 SP ID 或 ID 重复")
+        score = float(row.get("M") or "nan")
+        if not math.isfinite(score):
+            raise ValueError("%s 在卖点库 v2 中缺有效 M 分" % point_id)
+        scores[point_id] = score
+    if not scores:
+        raise ValueError("卖点库 v2 没有数据")
+    return scores
+
+
+def audit_bullet_translations(copy, required):
+    if not required and "bullet_translations" not in copy:
+        return None
+    translations = copy.get("bullet_translations")
+    if (not isinstance(translations, list)
+            or len(translations) != len(copy.get("bullets") or [])
+            or any(not isinstance(text, str) or not re.search(r"[\u3400-\u9fff]", text) for text in translations)):
+        return "bullet_translations 须按五点原文顺序逐条提供中文对照"
+    return None
 
 
 def unsupported_fab_claim(copy, fab, patterns):
@@ -288,6 +321,28 @@ def bytes_len(s):
     return len((s or "").encode("utf-8"))
 
 
+def search_term_issues(search_terms, front_text, limits):
+    size = bytes_len(search_terms)
+    upper = limits["max"]
+    issues = []
+    if size > upper or (size == upper and limits.get("strict_max", False)):
+        bound = "须小于" if limits.get("strict_max", False) else "不得超过"
+        issues.append("ST %d 字节，%s %d 字节" % (size, bound, upper))
+    lower = math.ceil(upper * limits.get("target_min_ratio", 0))
+    if size < lower:
+        issues.append("ST %d 字节，低于交付目标 %d 字节" % (size, lower))
+    if search_terms and limits.get("unique_words", False):
+        if not re.fullmatch(r"[a-z0-9]+(?: [a-z0-9]+)*", search_terms):
+            issues.append("ST 仅用小写字母或数字，词间用单个空格")
+        words = tokens(search_terms)
+        if len(words) != len(set(words)):
+            issues.append("ST 内含重复词")
+        overlap = sorted(set(words) & set(tokens(front_text)))
+        if overlap:
+            issues.append("ST 与前台重复：%s" % "、".join(overlap))
+    return issues
+
+
 def clauses(text):
     """按句末与分号切子句，用于句长检查。"""
     parts = re.split(r"[.!?;:]", text or "")
@@ -314,9 +369,11 @@ def main():
     lib_path = ROOT / inp["keyword_library"]
     sp_path = ROOT / inp["selected_sp"]
     fab_path = ROOT / inp["fab_cards"] if inp.get("fab_cards") else None
+    scores_path = ROOT / inp["selling_point_library"] if inp.get("selling_point_library") else None
 
     # ---------- C0 输入齐备 ----------
-    missing = [str(p) for p in [copy_path, facts_path, lib_path, sp_path] if not p.exists()]
+    missing = [str(p) for p in (copy_path, facts_path, lib_path, sp_path, fab_path, scores_path)
+               if p is not None and not p.is_file()]
     if missing:
         fail("C0 输入齐备", "缺文件：" + "；".join(missing))
         # 输入不全时一律不落盘，避免在建错的目录里生出一堆空产物
@@ -328,15 +385,22 @@ def main():
     try:
         selection = json.loads(sp_path.read_text(encoding="utf-8-sig"))
         fab = read_fab(fab_path) if fab_path is not None else None
-        status, detail = audit_selected_points(selection, copy, cfg["fields"]["bullet_count"]["max"], fab)
+        scores = read_selling_point_scores(scores_path) if scores_path is not None else None
+        status, detail = audit_selected_points(selection, copy, cfg["fields"]["bullet_count"]["max"], fab, scores)
         if status == "PASS" and fab is not None:
             problem = unsupported_fab_claim(copy, fab, cfg.get("fab_claim_patterns", {}))
             if problem:
                 status, detail = "FAIL", problem
             else:
                 detail = "定稿主张与 FAB 卡一致，五点 ID 按 M 降序；扩写仍须人工复核"
+        if status == "PASS" and scores is not None:
+            detail += "；M 分已与卖点库 v2 核对"
+        if status != "FAIL":
+            problem = audit_bullet_translations(copy, cfg.get("decisions", {}).get("bullet_translation_required", False))
+            if problem:
+                status, detail = "FAIL", problem
     except (ValueError, OSError) as exc:
-        status, detail = "FAIL", "无法读取定稿卖点或 FAB 卡：%s" % exc
+        status, detail = "FAIL", "无法读取定稿卖点、FAB 卡或卖点库 v2：%s" % exc
     CASES.append((status, "C0 输入与定稿卖点", detail))
     if status == "FAIL":
         issue("FAIL", "C0", sp_path.name, "", detail, "核对选定卖点文件和文案中的卖点 ID")
@@ -397,10 +461,9 @@ def main():
     elif len(desc) > f["description"]["recommend_max"]:
         warn("C1 字段边界", "描述 %d 字符，超建议上限 %d" % (len(desc), f["description"]["recommend_max"]))
 
-    if bytes_len(st) > f["st"]["max"]:
-        bad.append("ST %d 字节 > %d" % (bytes_len(st), f["st"]["max"]))
-        issue(sev["field_limit"], "C1", "search_terms", st,
-              "超 %d 字节" % f["st"]["max"], "删低相关性词")
+    for problem in search_term_issues(st, frontend, f["st"]):
+        bad.append(problem)
+        issue(sev["field_limit"], "C1", "search_terms", st, problem, "按前台、词库和本品事实核对后台词")
 
     if bad:
         fail("C1 字段边界", "；".join(bad))
@@ -618,6 +681,8 @@ def main():
     all_stems = set()
     for _, t in field_texts:
         all_stems.update(stems(t, stop))
+    backend_stems = set(stems(st, stop))
+    combined_stems = all_stems | backend_stems
 
     p0_miss, p1_miss, p1_noreason, p1_fake, counted = [], [], [], [], 0
     st_pool = []          # 未覆盖且 R≥0.6 的词：本该进 ST 的候选
@@ -646,6 +711,10 @@ def main():
             else:
                 # 所有词都在，但分散在不同字段：算覆盖，标拆词
                 where, form = "跨字段", "SPLIT"
+        elif prio == "P2" and need and all(in_stems(nt, combined_stems) for nt in need):
+            covered = True
+            where = "search_terms" if all(in_stems(nt, backend_stems) for nt in need) else "前台+search_terms"
+            form = "STEM" if where == "search_terms" else "SPLIT"
         verdict = "PASS" if covered else rule.get(prio, "IGNORE")
         reason = reasons.get(kw, "")
         layer, audited, why = audit_reason(reason, facts)

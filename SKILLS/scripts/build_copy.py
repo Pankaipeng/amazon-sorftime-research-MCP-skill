@@ -26,7 +26,7 @@ import yaml
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from check_copy import read_fab
+from check_copy import read_fab, read_selling_point_scores
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -79,8 +79,11 @@ def main():
     out = {k: v.replace("{category}", args.category) for k, v in cfg["outputs"].items()}
     outdir = ROOT / out["dir"]
     fab = None
+    scores = None
     fab_input = cfg["inputs"].get("fab_cards")
-    if fab_input:
+    scores_input = cfg["inputs"].get("selling_point_library")
+    translation_required = cfg.get("decisions", {}).get("bullet_translation_required", False)
+    if fab_input or scores_input or translation_required:
         result = subprocess.run([
             sys.executable, str(Path(__file__).with_name("check_copy.py")),
             "--category", args.category, "--config", args.config,
@@ -88,7 +91,11 @@ def main():
         if result.returncode:
             print("当前文案未通过自检，请先处理报告中的失败项。")
             return result.returncode
-        fab = read_fab(ROOT / fab_input.replace("{category}", args.category))
+        if fab_input:
+            fab = read_fab(ROOT / fab_input.replace("{category}", args.category))
+        if scores_input:
+            scores_path = ROOT / scores_input.replace("{category}", args.category)
+            scores = read_selling_point_scores(scores_path)
     check = read_check(outdir / out["selfcheck"])
     if not check["executed"]:
         print("自检未执行：先跑 check_copy.py --category %s，再跑 build" % args.category)
@@ -274,14 +281,26 @@ def main():
                {"等级": 24, "检查项": 24, "说明": 110}, mark_col="等级")
     s5.auto_filter.ref = None          # 首行是结论不是表头，不适合当筛选器
 
-    if fab is not None:
-        columns = ["可用措辞", "本品事实", "市场证据定位", "验证缺口"]
-        evidence_rows = [
-            [index, point_id, *(fab[point_id].get(column, "") for column in columns)]
-            for index, point_id in enumerate(d["bullet_sp_ids"], 1)
-        ]
-        sheet("07_卖点依据", ["五点顺序", "卖点 ID", *columns], evidence_rows,
-              {column: 55 for column in columns})
+    translations = d.get("bullet_translations")
+    if fab is not None or scores is not None or translations:
+        columns = ["可用措辞", "本品事实", "市场证据定位", "验证缺口"] if fab is not None else []
+        score_columns = ["M 分（降序）", "排序来源"] if scores is not None else []
+        copy_columns = ["英文五点原文", "中文对照"] if translations else []
+        evidence_rows = []
+        point_ids = d.get("bullet_sp_ids") or [""] * len(bullets)
+        for index, point_id in enumerate(point_ids, 1):
+            ranking = [scores[point_id], f"{scores_path.name} · {point_id}"] if scores is not None else []
+            card = [fab[point_id].get(column, "") for column in columns] if fab is not None else []
+            bilingual = [bullets[index - 1], translations[index - 1]] if translations else []
+            evidence_rows.append([index, point_id, *ranking, *bilingual, *card])
+        widths = {column: 50 for column in [*copy_columns, *columns]}
+        widths.update({"五点顺序": 10, "卖点 ID": 10, "排序来源": 36, "英文五点原文": 53})
+        evidence = sheet("07_卖点依据", ["五点顺序", "卖点 ID", *score_columns, *copy_columns, *columns],
+                         evidence_rows, widths)
+        evidence.freeze_panes = "C2"
+        for cells in evidence.iter_rows(min_row=2):
+            for cell in cells:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
 
     xlsx = outdir / out["xlsx"]
     wb.save(xlsx)
