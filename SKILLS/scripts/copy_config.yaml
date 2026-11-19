@@ -24,8 +24,14 @@ meta:
 inputs:
   facts:            调研/{category}/00-事实卡.json
   selected_sp:      调研/{category}/00-选定卖点.json
+  fab_cards:        调研/{category}/selling-point/SP-10-FAB卖点卡.csv
   keyword_library:  调研/{category}/keyword_library.csv
   copy:             调研/{category}/copy/copy.json
+
+# 按品类配置。对应 FAB 主张未核准时，检查常见的越权表述。
+fab_claim_patterns:
+  SP01: '\b(?:strong(?:er)?|powerful|heavy[- ]duty|superior|extra[- ]strong|enhanced) suction\b|\b(?:anti[- ]slip|no[- ]slip|slip[- ]resistant|won.t (?:slip|slide|fall))\b'
+  SP02: '\b(?:long[- ]lasting|permanent|lasting) (?:suction|hold|stability)\b|\b(?:stays?|holds?) (?:firm|secure|in place) (?:for (?:weeks|months|years)|over time)\b'
 
 # ---------- 输出（文件名带 CP- 前缀，与 10-keyword 的 00~10、40-selling-point 的 SP- 区分） ----------
 outputs:

@@ -297,8 +297,6 @@ def main():
         s["role"] = decide_role(s["cov"], s["P"], s["V"], cfg["roles"])
         dims = 1 if s["cov"] > 0 else 0
         dims += 1 if (s["pos_n"] + s["neg_n"]) > 0 else 0
-        if cfg["image"]["enabled"]:
-            dims += 1
         s["dims"] = dims
 
     # ---- 分级（名额制）
@@ -425,7 +423,7 @@ def main():
         r4.append([
             s["sp"]["id"], s["sp"]["name"], slot_map.get(s["sp"]["sp_type"], "2"),
             f"{s['sp']['claim']} + 视觉证据（场景/尺寸/对比/细节）",
-            "DATA_MISSING：无图包",
+            "DATA_MISSING：图片未计入",
             f"该卖点是否真的『上图才算成立』；当前等级 {s['grade']} 是否被低估",
         ])
     write_csv(outdir / "SP-04-图片降级清单.csv", h4, r4)
@@ -472,12 +470,11 @@ def main():
             gaps.append("无支撑搜索词")
         if s["pos_n"] + s["neg_n"] == 0:
             gaps.append("评论零命中")
-        if not cfg["image"]["enabled"]:
-            gaps.append("图片维度未采集")
+        gaps.append("图片证据未纳入计算")
         if s["role"] in ("pending", "drop") or s["grade"] in ("C", "D"):
             r7.append([s["sp"]["id"], s["sp"]["name"], s["grade"], "；".join(gaps) or "结论偏弱",
                        "拍图包 / 追加评论抽样 / 补关键词" if gaps else "人工复核",
-                       "图片" if not cfg["image"]["enabled"] else "评论"])
+                       "图片"])
     write_csv(outdir / "SP-07-待补证据.csv", h7, r7)
 
     theme_header = ["主题", "主卖点 ID", "卖点角色与图位", "好评评论数", "差评评论数", "主题评论数", "口径"]
@@ -548,7 +545,7 @@ def build_xlsx(outdir, cfg, sps, h1, r1, h2, r2, h3, r3, h4, r4, h5, r5, h6, r6,
         ["等级", "A 主攻（名额 5，需 G≥0.20）/ B 必写 / C 加分或待证 / D 淘汰"],
         ["角色", "入场券 / 主攻空白 / 常见卖点 / 已验证卖点 / 品类标配 / 待验证 / 淘汰"],
         ["", ""],
-        ["图片维度", "本轮 DATA_MISSING。沙箱无外网、Amazon 页面返回 Access restricted、asin_detail 仅 1 张主图 URL 且不可读。图包到位后把 sp_config.yaml 的 image.enabled 改 true 重跑"],
+        ["图片维度", "DATA_MISSING。当前构建流程只读取五点与评论证据，图片维度计 0。"],
         ["confidence", "MEASURED=接口直出 / DERIVED=由数据算出 / JUDGED=人的判断"],
         ["", ""],
         ["口径限制", "样本含吸盘、胶粘、挂龙头三种安装形态，覆盖率为全样本口径，不等于同类形态内覆盖率"],
