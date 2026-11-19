@@ -83,7 +83,8 @@ def main():
     fab_input = cfg["inputs"].get("fab_cards")
     scores_input = cfg["inputs"].get("selling_point_library")
     translation_required = cfg.get("decisions", {}).get("bullet_translation_required", False)
-    if fab_input or scores_input or translation_required:
+    semantic_required = cfg.get("decisions", {}).get("bullet_semantic_review_required", False)
+    if fab_input or scores_input or translation_required or semantic_required:
         result = subprocess.run([
             sys.executable, str(Path(__file__).with_name("check_copy.py")),
             "--category", args.category, "--config", args.config,
@@ -299,6 +300,20 @@ def main():
                          evidence_rows, widths)
         evidence.freeze_panes = "C2"
         for cells in evidence.iter_rows(min_row=2):
+            for cell in cells:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    semantic_review = d.get("bullet_semantic_review")
+    if semantic_review:
+        benefits = dict(zip(semantic_review["sp_ids"], semantic_review["buyer_benefits"]))
+        pairs = [
+            [left, benefits[left], right, benefits[right], row["reason"]]
+            for row in semantic_review["pairs"]
+            for left, right in [row["sp_ids"]]
+        ]
+        semantic_sheet = sheet("08_五点语义去重", ["卖点 A", "买家利益 A", "卖点 B", "买家利益 B", "独立性依据"],
+                               pairs, {"买家利益 A": 39, "买家利益 B": 39, "独立性依据": 54})
+        for cells in semantic_sheet.iter_rows(min_row=2):
             for cell in cells:
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
 

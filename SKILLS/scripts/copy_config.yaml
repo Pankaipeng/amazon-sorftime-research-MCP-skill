@@ -178,6 +178,7 @@ coverage:
 # 目的：把小选择变成可计算的判断，不回来问人。只有事实缺失/商业取舍/品牌调性才问。
 decisions:
   bullet_translation_required: true
+  bullet_semantic_review_required: true
   # ---- 接线状态逐键标注（2026-11-18 核对）----
   # 这一节混了两类键：一类是「写作时的决策参数」（自检脚本不读），一类是「自检阈值」（脚本读）。
   # 之前不区分，导致文档里承诺的 FAIL 其实没有闸门（bullet_fact_anchor_min 就是其一）。
