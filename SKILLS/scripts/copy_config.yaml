@@ -15,7 +15,7 @@ meta:
   owner_brand: nieifi
   # 写进 文案.xlsx 说明页的口径备注。换类目必须一起改，否则说明页会和数据脱钩。
   keyword_note: "232 词，全表统一 2026-10 卖家精灵口径"
-  bullet_note: "五点按卖点分 M 降序，2026-11-17 定"
+  bullet_note: "按购买决策价值、新增信息量和差异化选点，按五点职责安排顺序"
   # 写进 xlsx 说明页的「已知缺口」行。2026-11-18 起进配置：原先写死在 build_copy.py 第 184 行，
   # 内容随事实卡更新而过期（吸盘数量已补、卡扣由「待补」变成「确认无增强」），属手写数字会漂那一类。
   known_gap: "无实测承重（load.tested=false）→ 全篇禁 lbs；三围三项未填（用户裁定）→ SP23 BLOCKED、标题无规格槽、尺寸图做不了；吸盘直径/材质未填 → SP01 停在 DOWNGRADE；卡扣确认无增强 → SP07 禁喊 reinforced、A→C；备用件为 0 → 禁 spare/extra suction"
@@ -176,6 +176,14 @@ coverage:
 
 # ---------- 自动决断（见 references/06-决断规则.md）----------
 # 目的：把小选择变成可计算的判断，不回来问人。只有事实缺失/商业取舍/品牌调性才问。
+bullet_selection:
+  max_rating: 4
+  weights:
+    purchase_value: 45
+    new_information_value: 35
+    differentiation: 20
+  slots: [核心差异化, 核心功能, 使用体验, 使用场景, 规格与购买决策]
+
 decisions:
   bullet_translation_required: true
   bullet_semantic_review_required: true
