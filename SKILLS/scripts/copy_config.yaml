@@ -25,6 +25,7 @@ inputs:
   facts:            调研/{category}/00-事实卡.json
   selected_sp:      调研/{category}/00-选定卖点.json
   fab_cards:        调研/{category}/selling-point/SP-10-FAB卖点卡.csv
+  selling_point_library: 调研/{category}/selling-point/SP-01-卖点库_v2.csv
   keyword_library:  调研/{category}/keyword_library.csv
   copy:             调研/{category}/copy/copy.json
 
@@ -94,6 +95,9 @@ fields:
   st:
     max: 250
     unit: byte            # 字节，非字符
+    strict_max: true
+    target_min_ratio: 0.5
+    unique_words: true
   bullet_count:
     min: 5
     max: 5                # 官方至少 3 条、最多 5 条
@@ -173,6 +177,7 @@ coverage:
 # ---------- 自动决断（见 references/06-决断规则.md）----------
 # 目的：把小选择变成可计算的判断，不回来问人。只有事实缺失/商业取舍/品牌调性才问。
 decisions:
+  bullet_translation_required: true
   # ---- 接线状态逐键标注（2026-11-18 核对）----
   # 这一节混了两类键：一类是「写作时的决策参数」（自检脚本不读），一类是「自检阈值」（脚本读）。
   # 之前不区分，导致文档里承诺的 FAIL 其实没有闸门（bullet_fact_anchor_min 就是其一）。

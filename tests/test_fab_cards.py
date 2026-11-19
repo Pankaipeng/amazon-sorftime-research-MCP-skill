@@ -53,3 +53,37 @@ def test_copy_rejects_unapproved_fab_claims(monkeypatch):
         row = {**selection["selected"][0], "sp_id": point_id, "claim": phrase}
         assert audit_selected_points({"selected": [row]}, copy, 1, cards)[0] == "FAIL"
         assert point_id in unsupported_fab_claim({**copy, "highlights": phrase}, cards, patterns)
+
+
+def test_copy_reviews_current_scores_and_translation(tmp_path, monkeypatch):
+    scripts = Path(__file__).resolve().parents[1] / "SKILLS/scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    from check_copy import audit_bullet_translations, audit_selected_points, read_selling_point_scores
+
+    library = tmp_path / "library.csv"
+    library.write_text("sp_id,M\nSP03,29.1\n", encoding="utf-8")
+    scores = read_selling_point_scores(library)
+    point = {"sp_id": "SP03", "fact_status": "CONFIRMED", "claim": "Two ways to mount", "M": 23.1}
+    selection = {"selected": [point]}
+    copy = {"bullet_sp_ids": ["SP03"], "bullets": ["Two ways to mount"]}
+
+    status, detail = audit_selected_points(selection, copy, 1, selling_point_scores=scores)
+    assert status == "FAIL" and "与卖点库 v2 的 29.1 不一致" in detail
+    point["M"] = 29.1
+    assert audit_selected_points(selection, copy, 1, selling_point_scores=scores)[0] == "PASS"
+    assert audit_bullet_translations(copy, required=True)
+    assert audit_bullet_translations({**copy, "bullet_translations": ["Two ways to mount"]}, required=True)
+    assert audit_bullet_translations({**copy, "bullet_translations": ["两种安装方式"]}, required=True) is None
+
+
+def test_search_term_limits_and_frontend_deduplication(monkeypatch):
+    scripts = Path(__file__).resolve().parents[1] / "SKILLS/scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    from check_copy import search_term_issues
+
+    limits = {"max": 250, "strict_max": True, "target_min_ratio": 0.5, "unique_words": True}
+    previous = search_term_issues("essentials organization decor", "Sponge Holder", limits)
+    assert any("低于交付目标 125 字节" in issue for issue in previous)
+    assert any("须小于" in issue for issue in search_term_issues("x" * 250, "", limits))
+    assert any("与前台重复" in issue for issue in search_term_issues("caddy drain", "Sink Caddy", limits))
+    assert not search_term_issues("x" * 125, "", limits)
