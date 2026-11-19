@@ -91,6 +91,8 @@ python skills/scripts/check_sp.py                # 自检，退出码非 0 即�
 
 `check_sp.py` 七项：字段完整 / 证据双维（A、B 级必须五点+评论都有）/ 单源占比 ≤40% / A 级名额与 G 门槛 / 冲突披露 / 覆盖数可回查 / 五点证据能回到原文。第三、七项是真拦得住"看起来完整、实际空转"的检查。
 
+事实核对生成 v2 卖点库时，先按事实状态处理降级，再按 G 分从高到低分配剩余 A 级名额。G 同分时优先保留 v1 的 A 级候选，再按卖点 ID 排序。超额候选顺延 B，分档结果同时写入卖点库和事实核对表。
+
 ## 图片维度：本轮为什么缺
 
 沙箱无外网：`curl` 到 `m.media-amazon.com` SSL 直接断；`web_fetch` 打 `amazon.com/dp/...` 返回 Access restricted 拦截页；`asin_detail` 只给 1 张主图 URL（`imageUrl`），没有 7 图列表，且图片本身无法读取。

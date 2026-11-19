@@ -23,6 +23,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+from fact_provenance import outer_dimensions_from_packaging
+
 try:
     import yaml
 except ImportError:
@@ -204,6 +206,24 @@ def grade_of(row, sp_cfg, fact_cfg, status):
     return base, base, ""
 
 
+def apply_a_grade_slots(judge_rows, library_rows, source_rows, slots):
+    """Reallocate A slots after excluding claims downgraded by the fact check."""
+    finalists = [
+        (judgment, library)
+        for judgment, library in zip(judge_rows, library_rows)
+        if judgment["等级_v2"] == "A"
+    ]
+
+    def priority(pair):
+        source = source_rows[pair[0]["sp_id"]]
+        return (-float(source["G机会分"]), source.get("等级") != "A", source["sp_id"])
+
+    finalists.sort(key=priority)
+    for judgment, library in finalists[slots:]:
+        judgment["等级_v2"] = library["等级"] = "B"
+        library["等级_note"] = "事实核对后 A 级名额已满，顺延 B"
+
+
 # ------------------------------------------------------------------ 自检
 def run_selfcheck(cfg, facts, rows, judge_rows):
     out = []
@@ -274,8 +294,9 @@ def run_selfcheck(cfg, facts, rows, judge_rows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--facts", help="事实卡 JSON 路径")
-    ap.add_argument("--config", default=str(ROOT / "skills/scripts/fact_schema.yaml"))
-    ap.add_argument("--sp-config", default=str(ROOT / "skills/scripts/sp_config.yaml"))
+    script_dir = Path(__file__).resolve().parent
+    ap.add_argument("--config", default=str(script_dir / "fact_schema.yaml"))
+    ap.add_argument("--sp-config", default=str(script_dir / "sp_config.yaml"))
     ap.add_argument("--no-write", action="store_true", help="只判定不落盘")
     args = ap.parse_args()
 
@@ -290,6 +311,9 @@ def main():
         return 2
     with io.open(facts_path, encoding="utf-8") as f:
         facts = json.load(f)
+    if outer_dimensions_from_packaging(facts):
+        print("事实卡三围取自包装，按商品三围缺失处理。")
+        facts.setdefault("dims", {})["outer_in"] = {"l": None, "w": None, "h": None}
 
     lib_path = p(cfg["meta"]["library_v1"])
     if not lib_path.exists():
@@ -311,7 +335,11 @@ def main():
             print("卖点库里没有 %s，但配置里有这条规则" % sid, file=sys.stderr)
             return 2
 
-        status, reason, claim, ns = judge(rule, facts, joins)
+        try:
+            status, reason, claim, ns = judge(rule, facts, joins)
+        except RuntimeError as exc:
+            print("事实卡结构或判定规则不完整：%s" % exc, file=sys.stderr)
+            return 2
 
         dep_vals = []
         for d in rule["deps"]:
@@ -365,6 +393,8 @@ def main():
         out["等级"] = final_grade
         out["等级_note"] = grade_note
         lib_rows.append(out)
+
+    apply_a_grade_slots(judge_rows, lib_rows, by_id, sp_cfg["grades"]["A"]["slots"])
 
     # ---------------- 自检
     checks = run_selfcheck(cfg, facts, rows, judge_rows)
