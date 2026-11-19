@@ -147,7 +147,7 @@ sp_defs:
   - id: SP01
     name: 强吸附不滑落
     theme: 固定与安装
-    claim_role: 结构证据
+    claim_role: 仅结构素材
     image_slot: 附图1
     claim: Holds tight, no slipping
     l1: [吸附牢固, 吸附失效]

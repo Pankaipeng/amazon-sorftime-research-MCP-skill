@@ -17,6 +17,7 @@ meta:
   sp_config: SKILLS/scripts/sp_config.yaml
 
 outputs:
+  fab: 调研/sponge-holder/selling-point/SP-10-FAB卖点卡.csv
   judge: 调研/sponge-holder/selling-point/SP-08-事实核对.csv
   library_v2: 调研/sponge-holder/selling-point/SP-01-卖点库_v2.csv
   selfcheck: 调研/sponge-holder/selling-point/09-事实核对自检.txt
@@ -109,6 +110,64 @@ required_soft:
   - {path: material.suction.qty,          label: 吸盘数量,          missing_effect: 不能写 dual / two cups}
   - {path: structure.shape,               label: 造型,              missing_effect: SP19 锁，不能提 smiley}
   - {path: package.spare_suction,         label: 备用吸盘数量,      missing_effect: SP22 已 DEPRECATE，无影响}
+
+# FAB 卡只在本品事实与配置中的前提一致时使用对外措辞。
+fab_claims:
+  SP01:
+    feature: 两个吸盘固定点，可拍实物特写。
+    requires: {material.suction.qty: 2}
+    gap: 缺少本品保持力与抗下滑测试。吸盘数量只用于展示结构。
+  SP03:
+    feature: 随附吸盘和胶片，支持水槽内壁和台面后墙两种安装位置。
+    advantage: 可按预留位置选择安装方案。
+    benefit: 手洗餐具时，把海绵和刷子布置在顺手的位置。
+    copy: "Two ways to mount: Use the suction cups inside the sink or the adhesive mount on the backsplash"
+    requires:
+      install.methods: [吸盘, 背胶 / 胶条]
+      install.positions: [水槽内壁, 台面后墙]
+    gap: 适用表面与旋转固定细节以本品实拍和安装验证为准。
+  SP04:
+    feature: 安装无需工具。
+    advantage: 可按步骤手动完成固定。
+    benefit: 手边没有钻和安装工具也能安装。
+    copy: "No drilling, no tools"
+    requires: {install.tools_required: false}
+    gap: 图中步骤需用本品实物演示复核。
+  SP10:
+    feature: 架体为本色未涂装 PC。
+    advantage: 架体本身无需依赖涂层保护。
+    benefit: 买家可判断水槽边使用的架体材质。
+    copy: "Uncoated PC body"
+    requires: {material.body: PC, material.finish: 本色无处理}
+    gap: 图面材质名称按 brief 待统一确认；未验证整套配件耐腐蚀。
+  SP11:
+    feature: 一个架体含海绵位和刷子位。
+    advantage: 海绵和刷子可集中摆放。
+    benefit: 手洗餐具时可在水槽边取用两件工具。
+    copy: "Keep your dish sponge and brush together in one caddy"
+    requires: {structure.zone_use: [海绵位, 刷位]}
+    gap: 实拍用具不随附，刷柄适配范围待实测。
+  SP13:
+    feature: 海绵和刷子各有一个独立分区。
+    advantage: 两件清洁工具可以分开放置。
+    benefit: 取刷子时可直接伸向刷子位。
+    copy: "Separate spots for your sponge and dish brush"
+    requires: {structure.zones: 2, structure.zone_use: [海绵位, 刷位]}
+    gap: 刷子位尺寸待实测，图面可作为 SP11 的结构证明。
+  SP17:
+    feature: 开放式架体，底部有沥水孔。
+    advantage: 水能从底部排出，开放处可通风。
+    benefit: 海绵用完放回去，滴水有出口。
+    copy: "Open sides let air circulate, and drain holes let water drip away"
+    requires: {structure.open_frame: true, structure.drain: 底部沥水孔}
+    gap: 干燥速度和防霉效果需要额外验证。
+  SP20:
+    feature: 事实卡列有厨房、浴室、房车和洗衣房场景。
+    advantage: 有合适安装位置时可用于不同房间。
+    benefit: 在实际用到清洁工具的地方集中存放。
+    copy: "Organize cleaning tools in the kitchen, bathroom, laundry room or RV"
+    requires: {surfaces.scenes: [厨房水槽, 浴室, 房车, 洗衣房]}
+    gap: 场景实拍应复核安装条件，保持 brief 的表面口径。
 
 # ---------------------------------------------------------------- D 分档
 # ⚠ 本文件不再定义 d_tiers（2026-11-18 删除）。
