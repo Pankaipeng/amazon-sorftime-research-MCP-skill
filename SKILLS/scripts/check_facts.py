@@ -418,7 +418,8 @@ def main():
             cols = ["sp_id", "卖点名", "claim_v1", "英文主张", "fact_ref", "fact_status",
                     "类型", "关联L1", "五点覆盖", "覆盖ASIN数", "平均位次", "好评验证条数",
                     "差评条数", "差评占比", "支撑词", "S", "P", "V", "D", "M", "G机会分", "角色",
-                    "等级", "等级_note", "证据维度", "冲突", "冲突类型", "confidence", "备注"]
+                    "等级", "等级_note", "证据维度", "冲突", "冲突类型", "confidence", "备注",
+                    "主题", "主张角色", "图位"]
             w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
             w.writeheader()
             w.writerows(lib_rows)
