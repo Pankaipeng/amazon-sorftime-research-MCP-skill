@@ -127,19 +127,72 @@ def load_review_xlsx(path):
 
 
 # ------------------------------------------------------------------ 核心
-def match_bullets(asins, patterns):
+def match_bullets(asins, patterns, exclude_patterns=()):
     """返回 {asin: [命中的五点位次, ...]}"""
     regs = [re.compile(p, re.I) for p in patterns]
+    exclusions = [re.compile(p, re.I) for p in exclude_patterns]
     hits = {}
     for a in asins:
         pos = []
         for i, b in enumerate(a["bullets"], 1):
             text = norm_text(b)
-            if any(r.search(text) for r in regs):
+            if any(r.search(text) for r in regs) and not any(r.search(text) for r in exclusions):
                 pos.append(i)
         if pos:
             hits[a["asin"]] = pos
     return hits
+
+
+def build_theme_rows(definitions, review_master):
+    """Count each review once per theme using the annotated review master."""
+    themes = {}
+    for item in definitions:
+        if item.get("theme"):
+            themes.setdefault(item["theme"], []).append(item)
+    if not themes:
+        return []
+
+    reviews = {}
+    if review_master and review_master.is_file():
+        workbook = openpyxl.load_workbook(review_master, read_only=True, data_only=True)
+        try:
+            rows = workbook["reviews_master"].values
+            header = next(rows)
+            key_index = header.index("review_key")
+            indexes = {}
+            for i, heading in enumerate(header):
+                parts = str(heading).split("|", 2)
+                if len(parts) == 3 and parts[0] in ("好评", "差评"):
+                    indexes[i] = (parts[0], parts[2])
+            reviews = {tag: set() for tag in indexes.values()}
+            for row in rows:
+                if row[key_index]:
+                    for i, tag in indexes.items():
+                        if row[i]:
+                            reviews[tag].add(row[key_index])
+        finally:
+            workbook.close()
+
+    result = []
+    for theme, items in themes.items():
+        labels = {label for item in items for label in item.get("review_l2", [])}
+        counts = {"好评": set(), "差评": set()}
+        matched_tags = False
+        for (polarity, label), keys in reviews.items():
+            if label in labels:
+                counts[polarity].update(keys)
+                matched_tags = True
+        result.append([
+            theme,
+            " / ".join(item["id"] for item in items if item.get("claim_role") == "主卖点"),
+            " / ".join(f"{item['id']} {item.get('claim_role', '')} {item.get('image_slot', '')}".strip()
+                       for item in items),
+            len(counts["好评"]) if matched_tags else "",
+            len(counts["差评"]) if matched_tags else "",
+            len(counts["好评"] | counts["差评"]) if matched_tags else "",
+            "按 review_key 去重，混合评论可同时计入好评和差评" if matched_tags else "缺主题逐条评论标签，未计数",
+        ])
+    return result
 
 
 def match_keywords(keywords, patterns):
@@ -195,7 +248,7 @@ def main():
     # ---- 逐卖点计算
     sps = []
     for sp in cfg["sp_defs"]:
-        hits = match_bullets(asins, sp.get("bullet_patterns", []))
+        hits = match_bullets(asins, sp.get("bullet_patterns", []), sp.get("bullet_exclude_patterns", []))
         cov = len(hits) / n_asin if n_asin else 0.0
         avg_pos = (sum(sum(v) / len(v) for v in hits.values()) / len(hits)) if hits else 0.0
 
@@ -307,7 +360,8 @@ def main():
     # 01 主表
     h1 = ["sp_id", "卖点名", "英文主张", "类型", "关联L1", "五点覆盖", "覆盖ASIN数",
           "平均位次", "好评验证条数", "差评条数", "差评占比", "支撑词", "S", "P", "V", "D",
-          "M", "G机会分", "角色", "等级", "证据维度", "冲突", "冲突类型", "confidence", "备注"]
+          "M", "G机会分", "角色", "等级", "证据维度", "冲突", "冲突类型", "confidence", "备注",
+          "主题", "主张角色", "图位"]
     r1 = []
     for s in sps:
         r1.append([
@@ -324,6 +378,7 @@ def main():
             s["conflict_type"],
             s["confidence"],
             s.get("grade_note", ""),
+            s["sp"].get("theme", ""), s["sp"].get("claim_role", ""), s["sp"].get("image_slot", ""),
         ])
     write_csv(outdir / "SP-01-卖点库.csv", h1, r1)
 
@@ -425,9 +480,15 @@ def main():
                        "图片" if not cfg["image"]["enabled"] else "评论"])
     write_csv(outdir / "SP-07-待补证据.csv", h7, r7)
 
+    theme_header = ["主题", "主卖点 ID", "卖点角色与图位", "好评评论数", "差评评论数", "主题评论数", "口径"]
+    master = ROOT / inp["review_master"] if inp.get("review_master") else None
+    theme_rows = build_theme_rows(cfg["sp_defs"], master)
+    if theme_rows:
+        write_csv(outdir / "SP-09-主题汇总.csv", theme_header, theme_rows)
+
     # ================================================================ xlsx
     build_xlsx(outdir, cfg, sps, h1, r1, h2, r2, h3, r3, h4, r4, h5, r5, h6, r6, h7, r7,
-               n_asin, total_bullets, neg_total)
+               n_asin, total_bullets, neg_total, (theme_header, theme_rows))
 
     # ================================================================ 摘要
     summary = {
@@ -456,7 +517,7 @@ def main():
 
 
 def build_xlsx(outdir, cfg, sps, h1, r1, h2, r2, h3, r3, h4, r4, h5, r5, h6, r6, h7, r7,
-               n_asin, total_bullets, neg_total):
+               n_asin, total_bullets, neg_total, theme_table):
     wb = openpyxl.Workbook()
     head_fill = PatternFill("solid", fgColor="1F3864")
     head_font = Font(color="FFFFFF", bold=True, size=10)
@@ -527,6 +588,8 @@ def build_xlsx(outdir, cfg, sps, h1, r1, h2, r2, h3, r3, h4, r4, h5, r5, h6, r6,
     sheet("05_评论映射", h5, r5, {"卖点名": 20, "二级": 32})
     sheet("06_冲突风险", h6, r6, {"卖点名": 20, "对撞证据": 50, "风险说明": 40, "处置建议": 40})
     sheet("07_待补证据", h7, r7, {"卖点名": 20, "缺什么证据": 40, "补证动作": 34})
+    if theme_table[1]:
+        sheet("08_主题汇总", *theme_table, {"卖点角色与图位": 72, "口径": 56})
 
     target = outdir / "卖点库.xlsx"
     try:

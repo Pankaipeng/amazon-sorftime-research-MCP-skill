@@ -93,6 +93,8 @@ python skills/scripts/check_sp.py                # 自检，退出码非 0 即�
 
 事实核对生成 v2 卖点库时，先按事实状态处理降级，再按 G 分从高到低分配剩余 A 级名额。G 同分时优先保留 v1 的 A 级候选，再按卖点 ID 排序。超额候选顺延 B，分档结果同时写入卖点库和事实核对表。
 
+「固定与安装」主题先试行主张角色。SP03 是主卖点，SP01 提供吸盘结构证据，SP04 补充操作利益，SP02 保留为待验证的长期性能。G/M 和等级仍描述单条调研主张，选图与文案分配可参考 `SP-09-主题汇总.csv` 的主卖点和图位。该汇总在配置了已标注的 `review_master` 时按 `review_key` 去重，混合情感评论可同时进入两种情感列，主题总数只计一次。
+
 ## 图片维度：本轮为什么缺
 
 沙箱无外网：`curl` 到 `m.media-amazon.com` SSL 直接断；`web_fetch` 打 `amazon.com/dp/...` 返回 Access restricted 拦截页；`asin_detail` 只给 1 张主图 URL（`imageUrl`），没有 7 图列表，且图片本身无法读取。

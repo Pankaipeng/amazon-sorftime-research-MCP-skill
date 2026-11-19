@@ -20,6 +20,7 @@ inputs:
   bullets_json: 调研/sponge-holder/products_wall_full.json      # 30 ASIN × 五点原文
   keyword_library: 调研/sponge-holder/keyword_library.csv       # 232 词，含 W / R / prio
   review_xlsx: 调研/sponge-holder/review-analysis/4 Reports/Sponge-Holder-Review-Analysis-20261113.xlsx
+  review_master: 调研/sponge-holder/review-analysis/3 Data/reviews_master.xlsx  # 主题汇总按 review_key 去重
   insight_xlsx: 调研/sponge-holder/review-analysis/4 Reports/Sponge-Holder-洞察补充-20261113.xlsx
   # 图片证据包（本轮为空，见 image.enabled）
   image_pack: 调研/sponge-holder/selling-point/image_pack
@@ -145,19 +146,18 @@ sp_defs:
 
   - id: SP01
     name: 强吸附不滑落
+    theme: 固定与安装
+    claim_role: 结构证据
+    image_slot: 附图1
     claim: Holds tight, no slipping
     l1: [吸附牢固, 吸附失效]
     sp_type: 功能
     kw_patterns: [suction]
     bullet_patterns:
-      - 'strong(est)? suction'
-      - 'suction cup'
-      - 'rock-solid'
-      - "won'?t (slip|fall|drop|move)"
-      - "stays? (put|in place)"
-      - 'secure hold|holds? firmly|firmly'
-      - 'powerful (suction|grip)|strong grip|grip that'
-      - 'holds? up to'
+      - '\b(?:strong(?:est)?|powerful) suction\b'
+      - '(?=.*\bsuction\b).*(?:\b(?:secure hold|strong grip|holds? firmly|sticks? firmly|stays? put|stays? in place)\b|\b(?:won.t|does not|no) (?:slip|slide|fall|drop)\b)'
+    bullet_exclude_patterns:
+      - '\bthan (?:traditional |ordinary )?suction cups?\b'
     review_l2:
       - 吸得牢不滑落
       - 吸盘完全不粘，装上就掉
@@ -166,32 +166,34 @@ sp_defs:
 
   - id: SP02
     name: 长期稳固不衰减
+    theme: 固定与安装
+    claim_role: 待验证性能
     claim: Still holding after months
     l1: [吸附牢固, 吸附失效]
     sp_type: 功能
     kw_patterns: []
     bullet_patterns:
-      - 'long[- ]lasting'
-      - 'lasts? for years|built to last'
-      - 'long[- ]term (stability|use|performance)'
-      - 'over time|years of'
+      - '\b(?:long[- ]lasting|long[- ]term|lasting) (?:suction|grip|hold)\b'
+      - '\b(?:suction|grip|hold|stays? (?:firmly |in place )?)[^.!?;]{0,32}\b(?:over time|(?:for|after) (?:\w+ )?(?:months|years))\b'
+    bullet_exclude_patterns:
+      - '\bthan (?:traditional |ordinary )?suction cups?\b'
     review_l2:
       - 长期使用仍稳固
       - 长期使用后吸附力衰减
 
   - id: SP03
     name: 吸盘+胶条双安装
+    theme: 固定与安装
+    claim_role: 主卖点
+    image_slot: 附图6
     claim: Two ways to mount
     l1: [安装省事, 安装与说明]
     sp_type: 功能
     kw_patterns: [adhesive, peel and stick]
     bullet_patterns:
-      - 'two (different )?(install|mount)'
-      - '2 (ways|installation|mounting|options|methods)'
-      - 'dual mounting'
-      - 'both (adhesive|installation)'
-      - 'adhesive (pad|strip|hook)|adhesive.*suction|suction.*adhesive'
-      - 'choose (the|any) (method|installation)'
+      - '(?=.*\bsuction cups?\b)(?=.*\b(?:adhesive (?:pads?|strips?|hooks?|mounts?)|adhesive mounting)\b).*\b(?:includes?|included|comes with|both|or|options?|methods?|choose|two ways|mounting accessories)\b'
+    bullet_exclude_patterns:
+      - '\bthan (?:traditional |ordinary )?suction cups?\b'
     review_l2:
       - 安装简单
       - 胶条方案在非金属面更牢
@@ -201,16 +203,16 @@ sp_defs:
 
   - id: SP04
     name: 免打孔免工具
+    theme: 固定与安装
+    claim_role: 操作利益
+    image_slot: 附图2
     claim: No drilling, no tools
     l1: [安装省事, 安装与说明]
     sp_type: 功能
     kw_patterns: [no drill, damage free, renter]
     bullet_patterns:
-      - 'no (drill|drilling|screws?|nails?|holes?)'
-      - 'without (drilling|tools|damage)'
-      - 'tool[- ]free|no tools'
-      - 'damage[- ]free|no damage|without leaving'
-      - 'peel (off|and stick)|install in one minute|1 second installation|installs? in seconds'
+      - '\b(?:no (?:drilling|drill|tools?)|without (?:drilling|tools?)|tool[- ]free|drill[- ]free)\b'
+      - '\bno (?:screws?|nails?|glue)(?:,? (?:screws?|nails?|glue))*,? or tools?\b'
     review_l2:
       - 安装简单
       - 吸盘难压入孔位
