@@ -107,6 +107,8 @@ class DataValidator:
 
             section_data = self.data[section]
             for field in fields:
+                if (section, field) == ('metadata', 'category') and section_data.get('category_name'):
+                    continue
                 if field not in section_data:
                     self.errors.append(f"[缺失] {section}.{field} 是必填字段")
                     passed = False

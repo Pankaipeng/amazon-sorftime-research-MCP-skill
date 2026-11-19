@@ -3,7 +3,7 @@
      
     "sorftime": {
       "type": "streamableHttp",
-      "url": "https://mcp.sorftime.com?key=vte0nhg2sexwc",
+      "url": "https://mcp.sorftime.com?key=${SORFTIME_API_KEY}",
       "name": "Sorftime MCP",
       "description": "Sorftime 跨境电商平台数据服务。已支持亚马逊14大站点、Tiktok 6大站点、以1688供应链平台。"
     },
@@ -11,14 +11,14 @@
       "type": "http",
       "url": "https://mcp.sif.com/mcp",
       "headers": {
-        "secret-key": "sifmcp260611p9fapnf"
+        "secret-key": "${SIF_API_KEY}"
       }
     },
     "xydc-mcp": {
       "type": "http",
       "url": "https://mcp.xydc.com/mcp",
       "headers": {
-        "Authorization": "Bearer mcp_80c05d7a5b0c"
+        "Authorization": "Bearer ${XIYOU_API_KEY}"
       },
       "name": "西柚洞察MCP",
       "description": "西柚洞察跨境电商数据服务，提供ASIN流量分析、关键词竞争、广告策略等功能。"
@@ -26,7 +26,7 @@
     "sellersprite": {
       "url": "https://mcp.sellersprite.com/mcp",
       "headers": {
-        "secret-key": "eaf4c0d6e8284d12"
+        "secret-key": "${SELLERSPRITE_API_KEY}"
       },
       "name": "卖家精灵MCP"
     }

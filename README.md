@@ -55,7 +55,7 @@ SKILLS/
 ## 快速开始
 
 ```bash
-pip install pyyaml
+pip install pyyaml openpyxl
 
 # 在一个已按 10-keyword 的输入契约准备好数据的项目目录里：
 python SKILLS/scripts/merge.py  <项目目录>
@@ -67,9 +67,15 @@ python SKILLS/scripts/score_copy.py --category sponge-holder   # 调 vendor 体�
 python SKILLS/scripts/build_copy.py --category sponge-holder --sku <SKU>   # 出 xlsx / 粘贴稿 / 汇总
 ```
 
-第三方体检工具零依赖、无需 API Key，随仓库一起走（`SKILLS/vendor/amazon-listing-doctor/`），不联网、不额外安装。若该目录被删掉，`score_copy.py` 会在 `04_评分` 表写「未执行」并继续，不影响其余产物。
+第三方体检工具零依赖、无需 API Key，随仓库一起走（`SKILLS/skills/amazon-listing-doctor/`），不联网、不额外安装。若该目录被删掉，`score_copy.py` 会在 `04_评分` 表写「未执行」并继续，不影响其余产物。
 
 `merge.py` 只读文件、不认代码里的常量；`check.py` 检查的是"这轮有没有偷工"（字段是否齐、五路是否都有贡献、EST 占比、否定清单有没有过泛词、P0 名额、品牌词有没有混进标题层、取值是否合法）。**换类目只改 `config.yaml`，不改代码。**
+
+## 本地测试和 MCP 凭据
+
+在仓库根目录运行 `python -m pip install pyyaml openpyxl pytest`，再运行 `python -m pytest -q`。测试使用仓库样本和临时目录，脱离 MCP 也能运行。品类选品的联网客户端另需 `requests`。
+
+按实际使用的 MCP 服务，在本地为 Claude Code 设置对应环境变量。Sorftime 使用 `SORFTIME_API_KEY`，卖家精灵使用 `SELLERSPRITE_API_KEY`，SIF 使用 `SIF_API_KEY`，西柚使用 `XIYOU_API_KEY`。
 
 ## 10-keyword 做了什么
 
@@ -132,7 +138,7 @@ python SKILLS/scripts/build_copy.py --category sponge-holder --sku <SKU>   # 出
 | **卖家精灵 MCP**（SellerSprite） | SellerSprite | 全部市场侧数据来源：`keyword_miner` 搜索量与竞争指标、`asin_detail` 详情与五点（`features` 字段）、`traffic_keyword` 流量词、`product_research` 扩池 |
 | **amazon-listing-builder** | liangdabiao | `50-copy` 的词位规则（5 层词库）、字段边界、红线词表来源。**注意：`reference/ranking-rules.md` 不在上游仓库，是本项目 11-13 写进去的草稿，已作废** |
 | **xiyou-insight / sif-amazon-research** | liangdabiao | 流量诊断与市场验证，作为后续模块的参考 |
-| [amazon-listing-doctor](https://github.com/buluslan/amazon-listing-doctor) | Buluu@新西楼（公众号：新西楼.AI） | `50-copy` 的**第三方体检评分**（`04_评分` 表 / `CP-07`）：CDQ 六维质量分、A9 收录、COSMO 意图覆盖、Alexa 可发现性、2026 新规合规、标题词组分诊。**MIT 许可，原样存放于 `SKILLS/vendor/amazon-listing-doctor/`，未改一行代码**；来源、版本、提交号与口径差异见该目录 `SOURCE.md` |
+| [amazon-listing-doctor](https://github.com/buluslan/amazon-listing-doctor) | Buluu@新西楼（公众号：新西楼.AI） | `50-copy` 的**第三方体检评分**（`04_评分` 表 / `CP-07`）：CDQ 六维质量分、A9 收录、COSMO 意图覆盖、Alexa 可发现性、2026 新规合规、标题词组分诊。**MIT 许可，原样存放于 `SKILLS/skills/amazon-listing-doctor/`，未改一行代码**；来源、版本、提交号与口径差异见该目录 `SOURCE.md` |
 
 被借鉴的部分都改过：不是照抄，是拿真实类目跑完之后，把"和数据对不上"的规则换掉。比如上游的竞争分用等权平均，实测会被三项低值拉平、掩盖"商品数四万九"这种硬壁垒，于是补了单项极端值覆盖；上游的层级用固定绝对锚，小类目会被压成全是长尾，于是改成头部比例锚。
 

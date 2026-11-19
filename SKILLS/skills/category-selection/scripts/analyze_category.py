@@ -29,14 +29,19 @@ class CategoryAnalyzer:
         self.limit = 100
 
     def _load_api_key(self) -> str:
-        """从配置文件加载 API Key"""
+        """优先从环境变量读取，兼容已有本地配置。"""
+        api_key = os.environ.get('SORFTIME_API_KEY')
+        if api_key:
+            return api_key
         config_file = Path(".mcp.json")
         if config_file.exists():
             with open(config_file, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 url = config['mcpServers']['sorftime']['url']
-                return url.split('key=')[-1]
-        raise FileNotFoundError("找不到 .mcp.json 配置文件")
+                api_key = url.partition('key=')[2]
+                if api_key and not api_key.startswith('${'):
+                    return api_key
+        raise ValueError("请设置 SORFTIME_API_KEY 环境变量")
 
     def _get_next_id(self) -> int:
         """获取下一个请求 ID"""

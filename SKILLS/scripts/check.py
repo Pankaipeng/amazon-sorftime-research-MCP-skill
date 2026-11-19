@@ -62,8 +62,17 @@ def main():
     check("词库字段完整", not missing, "缺列：" + ",".join(missing) if missing else f"{len(REQUIRED_COLS)} 列齐")
 
     # 2 五路贡献
-    zero = [r["来源"] for r in trace if r["来源"] != "合计" and int(r["进候选"] or 0) == 0]
-    check("五路均有贡献", not zero, "零贡献：" + ",".join(zero) if zero else "7 路全部非零")
+    backend_present = os.path.isfile(os.path.join(P, cfg["inputs"]["backend_json"]))
+    required_sources = {"A", "B", "C", "D", "S"}
+    if backend_present:
+        required_sources.update({"N", "E"})
+    contributions = {r["来源"].split()[0]: int(r["进候选"] or 0)
+                     for r in trace if r["来源"] and r["来源"] != "合计"}
+    zero = sorted(source for source in required_sources if not contributions.get(source))
+    detail = "零贡献：" + ",".join(zero) if zero else f"{len(required_sources)} 路全部非零"
+    if not backend_present:
+        detail += "；后台未提供（可选）"
+    check("采集来源贡献", not zero, detail)
 
     # 3 EST 比例
     est_n = len([r for r in lib if r["est"] == "EST"])
