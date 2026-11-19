@@ -1,34 +1,23 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-直接生成 HTML 仪表板测试
-"""
-import os
-import sys
-import json
+"""Verify the keyword dashboard using a checked-in report fixture."""
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, SCRIPT_DIR)
+import json
+from pathlib import Path
 
 from generate_html_dashboard import generate_html_dashboard
 
-# 读取数据
-output_dir = r'D:\amazon-mcp\keyword-reports\B09QSGWCLG_US_20260314'
 
-with open(os.path.join(output_dir, 'keywords_raw.json'), 'r', encoding='utf-8') as f:
-    keywords = json.load(f)
+def test_generate_html_dashboard(tmp_path):
+    fixture = (
+        Path(__file__).resolve().parents[4] / "REPORTS-ALL" /
+        "keyword-reports" / "B0FMRTXKF6_US_20260314"
+    )
+    keywords = json.loads((fixture / "keywords_raw.json").read_text(encoding="utf-8"))
+    categorized = json.loads((fixture / "categorized_result.json").read_text(encoding="utf-8"))
 
-with open(os.path.join(output_dir, 'categorized_result.json'), 'r', encoding='utf-8') as f:
-    categorized = json.load(f)
+    output = Path(generate_html_dashboard("B0FMRTXKF6", "US", keywords, categorized, tmp_path))
 
-# 生成 HTML
-html_file = generate_html_dashboard(
-    'B09QSGWCLG',
-    'US',
-    keywords,
-    categorized,
-    output_dir,
-    {}
-)
-
-print(f"✓ HTML 仪表板已生成：{html_file}")
+    assert output == tmp_path / "dashboard.html"
+    html = output.read_text(encoding="utf-8")
+    assert "B0FMRTXKF6" in html
+    assert "{{KEYWORD_TABLE_ROWS}}" not in html
+    assert "<tbody" in html

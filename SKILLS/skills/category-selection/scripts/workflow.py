@@ -65,7 +65,7 @@ def get_api_key():
             sorftime_url = config.get('mcpServers', {}).get('sorftime', {}).get('url', '')
             if 'key=' in sorftime_url:
                 api_key = sorftime_url.split('key=')[-1]
-                if api_key:
+                if api_key and not api_key.startswith('${'):
                     print(f"  ✓ 从 .mcp.json 读取 API Key")
                     return api_key
         except Exception as e:

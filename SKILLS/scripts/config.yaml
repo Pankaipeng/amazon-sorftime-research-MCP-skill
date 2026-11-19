@@ -7,7 +7,7 @@ version: 1
 
 # 输入文件（相对项目目录）。缺哪个就在 trace 里显示 0 贡献，check.py 会报错。
 inputs:
-  search_table: 06-搜索量底表.csv     # keyword,searches —— 补量结果必须落成文件
+  search_table: 06-搜索量底表.csv     # keyword,searches,source —— source 记录接口和期次
   a_traffic: 0A-竞品流量词.csv
   pool: 01-竞品ASIN库.csv
   b_title: 02-标题高频词.csv

@@ -94,7 +94,8 @@ def build_candidates(P, cfg):
 
     for r in read_csv(os.path.join(P, cfg["inputs"]["search_table"])):
         mark("S", r["keyword"])
-        add(r["keyword"], "S", searches=int(float(r["searches"])) if r["searches"] else None)
+        add(r["keyword"], "S", searches=int(float(r["searches"])) if r["searches"] else None,
+            search_source=(r.get("source") or "").strip())
 
     for r in read_csv(os.path.join(P, cfg["inputs"]["a_traffic"])):
         mark("A", r["keyword"])
@@ -118,8 +119,9 @@ def build_candidates(P, cfg):
             add(r["词/词组"], "C", cov_c=float(r["覆盖率"]))
 
     for r in read_csv(os.path.join(P, cfg["inputs"]["d_autocomplete"])):
-        mark("D", r["联想词"])
-        add(r["联想词"], "D", ac=float(r["ac_score"] or 0))
+        word = r.get("联想词") or r.get("keyword")
+        mark("D", word)
+        add(word, "D", ac=float(r["ac_score"] or 0))
 
     if c_mode != "discover":
         for k, cov in c_cov.items():
@@ -330,7 +332,8 @@ def main():
             est, W = "NODATA", ""
         root, dim = root_of(k)
         out.append(dict(keyword=k, form=f, R1=r1, R2=r2, R3=r3, R=R, W=W,
-                        searches=s, ac_score=ac or "", coverage_raw=cov if cov is not None else "",
+                        searches=s, search_source=c.get("search_source", ""),
+                        ac_score=ac or "", coverage_raw=cov if cov is not None else "",
                         est=est, sources="".join(sorted(c["src"])), tier="-", prio="",
                         conv=conv.get(k, ""), root=root, root_dim=dim, tier_abs=""))
 
@@ -359,7 +362,8 @@ def main():
     if meas:
         vals = sorted(r["searches"] for r in meas)
         pcts = tm["percentile_fallback"]
-        cut = [statistics.quantiles(vals, n=100)[p - 1] for p in pcts]
+        quantiles = statistics.quantiles(vals, n=100) if len(vals) > 1 else vals * 99
+        cut = [quantiles[p - 1] for p in pcts]
         bounds = tm.get("volume_bounds", [])
         for r in out:
             if r["est"] != "MEASURED" or r["prio"]:
@@ -459,7 +463,8 @@ def main():
 
     hdr = ["keyword", "tier", "tier_abs", "prio", "est", "W", "R", "R1", "R2", "R3",
            "searches", "conv", "coverage_raw", "ac_score", "sources",
-           "root", "root_dim", "brand_role", "comp_score", "comp_level", "quadrant", "form"]
+           "root", "root_dim", "brand_role", "comp_score", "comp_level", "quadrant", "form",
+           "search_source"]
     with io.open(path("library"), "w", encoding="utf-8-sig", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=hdr, extrasaction="ignore")
         wr.writeheader()

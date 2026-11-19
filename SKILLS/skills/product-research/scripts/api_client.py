@@ -57,11 +57,15 @@ def get_project_root():
 
 def get_api_key():
     """
-    从 .mcp.json 读取 Sorftime API Key
+    优先从环境变量读取 Sorftime API Key，兼容已有本地配置。
 
     Returns:
         str: API Key
     """
+    api_key = os.environ.get('SORFTIME_API_KEY')
+    if api_key:
+        return api_key
+
     project_root = get_project_root()
     mcp_config_path = os.path.join(project_root, '.mcp.json')
 
@@ -75,15 +79,10 @@ def get_api_key():
             sorftime_url = config.get('mcpServers', {}).get('sorftime', {}).get('url', '')
             if 'key=' in sorftime_url:
                 api_key = sorftime_url.split('key=')[-1]
-                if api_key:
+                if api_key and not api_key.startswith('${'):
                     return api_key
         except Exception as e:
             print(f"⚠ 读取 .mcp.json 失败: {e}")
-
-    # 尝试环境变量
-    api_key = os.environ.get('SORFTIME_API_KEY', '')
-    if api_key:
-        return api_key
 
     raise ValueError(
         "API Key 未找到。请确保:\n"
