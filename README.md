@@ -2,6 +2,12 @@
 
 面向亚马逊运营的文件驱动调研流程。从竞品和本品事实输入出发，交付关键词库、竞品与用户洞察、可追溯卖点、Listing 文案和图片设计 brief。采集和语义判断由支持 MCP 的代理执行，Python 脚本负责转换、计算、校验和出表。
 
+## 项目思维导图
+
+[![亚马逊调研与 Listing 思维导图。左侧为输入契约，中间是关键词、竞品、洞察、卖点、文案与图片设计，右侧为对应交付物，底部为上线后可选回流。](docs/amazon-listing-workflow.png)](docs/amazon-listing-workflow.png)
+
+10 关键词与 30 评论可并行准备。20 读取 30 的痛点表后出完整竞品报告。40 将证据与本品事实核对，50 交付成稿后，60 结合已确认五点与图片证据制作设计 brief。上线数据可按版本回流到下一轮 00。
+
 ## 模块与交付
 
 | 模块 | 输入与交付 |
@@ -14,7 +20,7 @@
 | [50 文案](SKILLS/modules/50-copy/SKILL.md) | 选点、排序、生成、做语义和格式检查。交付可粘贴文本、Excel 和可选体检分 |
 | [60 图片 brief](SKILLS/modules/60-image-brief/README.md) | 主图 A/B 候选、副图任务、实拍验收和实验计划。需要证据与人工验收，含 Excel 模板 |
 
-`SKILLS/modules/` 描述输入输出和业务规则，`SKILLS/scripts/` 支撑离线转换和校验。`SKILLS/skills/` 和 `SKILLS/amz-review-analysis/` 保留可复用的上游技能。跨模块以文件和证据定位交接。20 读取 30 的痛点工作表，可先采集竞品基础数据，在洞察表可用后再出完整竞品报告。
+`SKILLS/modules/` 描述输入输出和业务规则，`SKILLS/scripts/` 支撑离线转换和校验。`SKILLS/skills/` 和 `SKILLS/amz-review-analysis/` 保留可复用的上游技能。跨模块以文件和证据定位交接。
 
 ## 快速开始
 
