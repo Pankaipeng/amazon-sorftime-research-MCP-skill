@@ -76,7 +76,7 @@ copy/
 ├── 08-文案自检.txt        与 08-交付自检.txt / 08-卖点库自检.txt 同格式
 ├── 09-口径核对对照.md     v1 → v2 差异（对齐 09-四维改造对照.md）
 ├── 文案报告.md            0 口径 / 1 主结论 / 2 明细 / 3 缺失 / 4 交接
-├── 90-main-image交接单.md 对齐 selling-point 的 50-copy交接单.md
+├── 60-image-brief交接单.md 对齐 selling-point 的 50-copy交接单.md
 ├── 上架稿-可直接粘贴.txt  零标注粘贴版
 ├── 文案.xlsx              与 卖点库.xlsx 同版式
 └── _summary.json          机器摘要

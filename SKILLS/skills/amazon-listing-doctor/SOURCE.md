@@ -31,7 +31,7 @@ python skills/vendor/amazon-listing-doctor/scripts/compliance_report.py --file <
 |---|---|---|---|
 | 标题字符未用满 | `char_utilization` 判 WARN，建议补到 75 | 75 是上界不是配额，剩余词 W 不够高就不塞 | 评分照实记 WARN，不据此改稿，理由写进 `文案报告.md` |
 | 属性维度权重 30% | 需要 `attributes_filled` + `attributes_top10_expected` | 本项目事实卡没有这一层 | 维度标「降级·无数据」，从总分里剔除后另算可用分 |
-| 图片维度权重 15% | 需要 images 数组 | 90-main-image 还没跑 | 同上 |
+| 图片维度权重 15% | 需要 images 数组 | `60-image-brief` 输出设计需求，评分仍需成品图输入 | 同上 |
 | COSMO / Alexa | 通用本体 + 通用提问词库，不按类目收敛 | 本项目的 D 分是按竞品覆盖率算的 | 只当参考，不进主结论；COSMO 降级时标「本体为通用词，未按类目收敛」 |
 | 五点条数 | 允许 5-6 条 | 官方 5 个字段位，本项目固定 5 条 | 无冲突 |
 

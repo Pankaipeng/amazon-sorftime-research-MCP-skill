@@ -17,7 +17,7 @@ skills/
 │   ├── 30-insight/   用户洞察
 │   ├── 40-selling-point/ 卖点提炼 ← 已完成
 │   ├── 50-copy/      文案生成
-│   └── 90-main-image/ 主图设计需求
+│   └── 60-image-brief/ 主图 A/B 与副图设计 brief
 └── vendor/           上游方法论与工具参考（只读，别在这里改）
     ├── sellersprite-amazon-research/  43 个 MCP 工具手册
     ├── review-analysis/               6 维痛点框架
@@ -40,7 +40,7 @@ skills/
     ↓
 50-copy（标题/亮点/五点/ST）
     ↓
-90-main-image（主图 brief）
+60-image-brief（主图 A/B 与副图 brief）
 ```
 
 每一步都落文件，下一模块读文件，不靠上下文传递。
@@ -54,7 +54,7 @@ skills/
 | 评论痛点、用户画像、使用场景 | `modules/30-insight/` |
 | 卖点库、卖点提炼、卖点排序、这个卖点成不成立 | `modules/40-selling-point/SKILL.md` |
 | 写标题 / 亮点 / 五点 / ST | `modules/50-copy/` |
-| 主图顺序、设计 brief | `modules/90-main-image/` |
+| 主图 A/B、副图编排、给设计师的图片 brief | `modules/60-image-brief/README.md` |
 | 查某个 MCP 工具怎么调 | `vendor/sellersprite-amazon-research/reference/` |
 | 合规红线、政策边界 | `modules/_common/政策边界.md` |
 | 输出怎么写才合规 | `modules/_common/输出规范.md` |
@@ -95,6 +95,6 @@ GitHub 仓库里还留着这些文件的历史副本（API 删除要逐文件调
 | `30-insight` | ⬜ 骨架 |
 | `40-selling-point` | ✅ v1，可运行（`scripts/build_selling_points.py` + `check_sp.py`，图片维度待图包） |
 | `50-copy` | ⬜ 骨架 |
-| `90-main-image` | ⬜ 骨架 |
+| `60-image-brief` | 已有逐图规则和空白模板 |
 
 下一步：`20-competitor` 补齐竞品拆解表，`30-insight` 把 `amz-review-analysis` 的产物正式纳入模块，之后 `50-copy` 接 `40-selling-point` 的交接单。

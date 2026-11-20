@@ -88,7 +88,7 @@ vendor 只存 `图片地址` / `图片数量` 做切片统计，Agent 没有读�
 - 用户画像 / 使用场景 / 痛点 → 09_评论总结三张卡
 - 痛点占比 → `40-selling-point` 的 P 分量（taxonomy 的 n_reviews 直接可用）
 - 已验证卖点 → `50-copy` 标题与五点
-- 新品方向 → `90-main-image` 主图 brief
+- 新品方向 → `60-image-brief` 主图 brief
 
 ## License 边界
 
