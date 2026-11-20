@@ -22,5 +22,5 @@ python SKILLS/scripts/build_competitor.py --asin-pool <ASIN-CSV> --bullets <五�
 竞品按输入池的唯一 ASIN 输出。价格带为左闭右开区间，缺价单列。五点证据使用 40 的词表，保留 ASIN、原句和位置。竞品痛点复用 30 的二级标签，并保留采样分母和组内占比。
 
 ## 待补
-- [ ] 卖点拆解三维：五点卖点 / 图片卖点 / 评论卖点（导图「竞品卖点拆解分析」）
+- 图片卖点采集与拆解见 [竞品图片卖点拆解](competitor-image-research/SKILL.md)，输出供 40 审阅。
 - [ ] 痛点严重度打分，供 `40-selling-point` 的 M 公式使用

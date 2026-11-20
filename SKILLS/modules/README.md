@@ -9,7 +9,7 @@
 30-insight        用户洞察（产出：画像、场景、痛点）
 40-selling-point  卖点提炼（产出：卖点库、卖点权重）
 50-copy           文案生成（标题/亮点/五点/ST）
-90-main-image     主图设计需求
+90-main-image     主图与副图设计 brief
 _common           跨模块共用：输出规范、口径声明
 ```
 
@@ -56,7 +56,7 @@ scripts/check_copy.py          文案交付自检（15 项，C0-C12）
 | 处理层 / 用户洞察（review + QA） | `30-insight/` | 画像 / 场景 / 痛点 |
 | 处理层 / 卖点提炼 | `40-selling-point/` | 卖点库 + 权重评分 |
 | 处理层 / listing 文案生成 | `50-copy/` | 标题 / 亮点 / 五点 / ST |
-| 处理层 / 主图设计需求 | `90-main-image/` | brief / 提示词 |
+| 输出层 / 图片设计需求 | `90-main-image/` | 给设计师的主图 A/B 与副图 brief |
 | 输出层 / 全部 | 各模块「输出」节 | 统一按 `_common/输出规范.md` |
 | 边界 / 最新政策规则 | `_common/政策边界.md` | 约束 |
 
@@ -89,4 +89,4 @@ scripts/check_copy.py          文案交付自检（15 项，C0-C12）
 | `30-insight` | ⬜ 骨架 |
 | `40-selling-point` | ✅ v1，可运行（`scripts/build_selling_points.py` + `check_sp.py`，7 项自检全过；图片维度待图包） |
 | `50-copy` | ✅ v2，可运行（`SKILL.md` + 8 份 references + `copy_config.yaml` + `build_copy.py` + `check_copy.py` 15 项自检）；sponge-holder 成稿已出，四字段全绿 |
-| `90-main-image` | ⬜ 骨架 |
+| `90-main-image` | 已有逐图 brief 规则，接收 40 的图片证据与 50 的最终五点 |

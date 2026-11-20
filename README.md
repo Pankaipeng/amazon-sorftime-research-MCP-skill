@@ -36,7 +36,7 @@ SKILLS/
 │   ├── 30-insight/         用户洞察（骨架）
 │   ├── 40-selling-point/   卖点提炼 ✅ v1
 │   ├── 50-copy/            文案生成 ✅ v2（含第三方体检评分）
-│   ├── 90-main-image/      主图设计需求（骨架）
+│   ├── 90-main-image/      主图 A/B 与副图设计 brief
 │   └── _common/            输出规范、口径声明、政策边界
 │
 └── scripts/                全库共用的脚本层（唯一真相源）
@@ -116,7 +116,7 @@ python SKILLS/scripts/build_copy.py --category sponge-holder --sku <SKU>   # 出
 | `30-insight` | ⬜ 骨架（评论分析可复用 `amz-review-analysis`） |
 | `40-selling-point` | ✅ v1，可运行（`scripts/build_selling_points.py` + `check_sp.py`，7 项自检全过；图片维度待图包） |
 | `50-copy` | ✅ v2，可运行（`check_copy.py` 15 项 + `score_copy.py` 第三方体检 + `build_copy.py` 出 xlsx；sponge-holder 已出成稿，两套检查全过） |
-| `90-main-image` | ⬜ 骨架 |
+| `90-main-image` | 主图 A/B 与副图设计规则，接收 40 卖点库和 50 最终五点 |
 
 ## 四条贯穿全库的规矩
 
