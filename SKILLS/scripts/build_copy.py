@@ -10,11 +10,10 @@
 所有阈值、上限、文件名都在 copy_config.yaml，本文件不写死任何数字或文件名。
 用法：
     python build_copy.py --category sponge-holder
-    python build_copy.py --category sponge-holder --sku WP650B-5-V1
+    python build_copy.py --category sponge-holder --sku DEMO-SKU
 """
 
 import argparse
-import csv
 import json
 import re
 import subprocess
@@ -26,23 +25,14 @@ import yaml
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from csv_io import read_csv, write_csv
+
 from check_copy import read_fab, read_selling_point_scores, score_bullet_plan
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 # ------------------------------------------------------------------ 工具
-def read_csv(path):
-    return list(csv.DictReader(open(path, encoding="utf-8-sig")))
-
-
-def write_csv(path, header, rows):
-    with open(path, "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(header)
-        w.writerows(rows)
-
-
 def read_check(path):
     """从 08-文案自检.txt 解析自检结论，供 xlsx / 汇总表 / summary 复用。
 

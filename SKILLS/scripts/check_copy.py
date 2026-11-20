@@ -38,6 +38,8 @@ from pathlib import Path
 
 import yaml
 
+from csv_io import read_csv
+
 from fact_provenance import outer_dimensions_from_packaging
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -70,10 +72,6 @@ def warn(item, msg):
 def issue(level, check, loc, text, problem, fix):
     ISSUES.append({"level": level, "check": check, "位置": loc,
                    "原文": (text or "")[:120], "问题": problem, "建议": fix})
-
-
-def read_csv(path):
-    return list(csv.DictReader(open(path, encoding="utf-8-sig")))
 
 
 def load_yaml(path):

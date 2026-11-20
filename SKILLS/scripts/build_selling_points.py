@@ -13,7 +13,6 @@
 """
 
 import argparse
-import csv
 import json
 import re
 import sys
@@ -23,6 +22,8 @@ import yaml
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+from csv_io import read_csv, write_csv as write_rows
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -46,10 +47,7 @@ def norm_text(s):
 
 def write_csv(path, header, rows):
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(header)
-        w.writerows(rows)
+    write_rows(path, header, rows)
 
 
 # ------------------------------------------------------------------ 读输入
@@ -79,7 +77,7 @@ def guess_mount(item):
 
 
 def load_keywords(path):
-    rows = list(csv.DictReader(open(path, encoding="utf-8-sig")))
+    rows = read_csv(path)
     out = []
     for r in rows:
         try:

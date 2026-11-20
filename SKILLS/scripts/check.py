@@ -15,10 +15,11 @@
 退出码 0 = 全部通过；1 = 有 FAIL。
 """
 import argparse
-import csv
 import io
 import os
 import sys
+
+from csv_io import read_csv
 
 try:
     import yaml
@@ -29,11 +30,6 @@ REQUIRED_COLS = ["keyword", "tier", "prio", "est", "W", "R", "R1", "R2", "R3",
                  "searches", "sources"]
 ALLOWED_PRIO = {"P0", "P1", "P2", "BRAND", "OBSERVE", "NEG", "NODATA"}
 ALLOWED_TIER = {"大词", "中词", "小词", "长尾", "-", ""}
-
-
-def read_csv(path):
-    with io.open(path, encoding="utf-8-sig") as f:
-        return list(csv.DictReader(f))
 
 
 def main():

@@ -24,6 +24,8 @@ import re
 import statistics
 import sys
 
+from csv_io import read_csv as read_rows
+
 try:
     import yaml
 except ImportError:
@@ -37,8 +39,7 @@ def norm(k):
 def read_csv(path):
     if not os.path.exists(path):
         return []
-    with io.open(path, encoding="utf-8-sig") as f:
-        return list(csv.DictReader(f))
+    return read_rows(path)
 
 
 def to_float(v):

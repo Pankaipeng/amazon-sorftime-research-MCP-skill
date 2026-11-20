@@ -48,3 +48,9 @@ Thumbs.db
 .env
 .env.local
 /西柚洞察
+
+# Private research data and generated project output
+/REPORTS-ALL/
+/调研/
+/outputs/
+/.pytest_cache/

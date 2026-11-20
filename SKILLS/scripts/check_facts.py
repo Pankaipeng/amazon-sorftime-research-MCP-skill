@@ -17,7 +17,6 @@ import argparse
 import csv
 import io
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -396,7 +395,7 @@ def main():
         cov = float(row["五点覆盖"])
         d_old = float(row["D"])
         d_new = d_of(cov, tiers)
-        S, P = float(row["S"]), float(row["P"])
+        P = float(row["P"])
         # M 只随 D 变化。用「CSV 记录的 M + D 变动带来的增量」而不是整体重算，
         # 避免原始 build 脚本里 S/P 舍入留下的 0.1 级噪声被误报成「M 变了」。
         delta_m = 100 * (d_new - d_old) * float(tpl_weights["D"])

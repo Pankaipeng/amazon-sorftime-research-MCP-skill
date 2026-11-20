@@ -9,8 +9,8 @@ description: 采集用户指定 ASIN 的亚马逊主图和副图，拆解竞品�
 
 1. 读取用户指定站点、ASIN 和分组。支持 `00-input` 的 `groups` 契约或明确指定的 ASIN 列表。保留分组和输入顺序，同站同 ASIN 只采一次。用户给的竞品组与自动扩池分别统计，按用户指定范围采集。
 2. 逐个调用卖家精灵 MCP `keepa_info`，请求 `marketplace,asin,dataAsin,brand,title,imageUrl,imageUrls`。`imageUrls` 是有序图集，数量随 ASIN 变化。用 `imageUrl` 的图片 ID 核对首图。若字段缺失，查一次完整响应，记录失败或缺图。若站点或实际数据 ASIN 不匹配，保留异常记录，禁止套用到该商品。
-3. 将结果写入 `keepa-source.json`，结构为 `{"marketplace":"US","captured_at":"YYYY-MM-DD","groups":{"head":["B087G4JMF9"]},"results":{"B087G4JMF9": {...}}}`。`results` 按请求 ASIN 保存接口的 `data`，失败时写 `null`。运行 `python SKILLS/scripts/collect_competitor_images.py --source <keepa-source.json> --out <分析目录>/image_pack`，需要 Pillow 和 curl。脚本优先尝试亚马逊 CDN 的 600 版，再回退到接口返回链接。以 `manifest.csv` 为索引，保留原位次、采集日期、原链接、实际下载 URL 和状态。每次采集使用独立输出目录。
-4. 报告成功图数、接口返回图数、成功 ASIN 数和请求 ASIN 数。下载失败保留原位次。页面图集存在无法确认的首图时标记 `首图待核`，仅在主图身份可核实时纳入主图结论。
+3. 将结果写入 `keepa-source.json`，结构为 `{"marketplace":"US","captured_at":"YYYY-MM-DD","groups":{"head":["B000000001"]},"results":{"B000000001": {...}}}`。`results` 按请求 ASIN 保存接口的 `data`，失败时写 `null`。运行 `python SKILLS/scripts/collect_competitor_images.py --source <keepa-source.json> --out <分析目录>/image_pack`，需要 Pillow 和 curl。脚本优先尝试亚马逊 CDN 的 600 版，再回退到接口返回链接。以 `manifest.csv` 为索引，保留原位次、采集日期、原链接、实际下载 URL 和状态。每次采集使用独立输出目录。
+4. 报告成功图数、接口返回图数、成功 ASIN 数和请求 ASIN 数。下载失败保留原位次。页面图集存在无法确认的首图时标记 `首图待核`，仅在主图身份可核实时纳入主图结论。若主图 ID 在后续位次出现，该图集后续位次标记为图位待核，待人工核对后再纳入副图。
 
 ## 逐图阅读
 
@@ -44,7 +44,7 @@ CTR 和购买转化率是分析目标。缺少可归因的同口径数据或实�
 - 在 `竞品图片卖点与展示逻辑.md` 写清站点、日期、样本分组、覆盖和异常。逐 ASIN 归纳主图点击手法与副图卖点顺序，保留图集原位次。副图前段指标注明副图范围，如附图 1–3，同时保留对应的图集位次。
 - 副图同主题按 ASIN 去重。同一 ASIN 的重复图不增加计数，跨 ASIN 复用图另外标注。给每个频次附已判读的副图 ASIN 分母和代表 `ASIN#图位`。按买家决策影响和可展示证据解释优先级。
 - 将能明确对应的副图卖点映射至 `40-selling-point` 的 `SP ID`，保留源图及本品核验项。主图点击策略随报告提供，使用单独的点击观察口径。本品尺寸、配件、材质和性能由本品事实或实测支持。由 40 审阅并确定图片卖点排序。
-- 交付前核对清单与逐图行的 `marketplace + asin + pos + file` 一一可追溯，对照原图抽查数字、文字与主副图身份，重新计算汇总分母。
+- 交付前核对清单与逐图行的 `marketplace + asin + pos + file` 一一可追溯，对照原图抽查数字、文字与主副图身份，重新计算汇总分母。合并时校验图包内的文件与清单，清单含 SHA-256 时核对摘要。
 
 ## 接入卖点库
 

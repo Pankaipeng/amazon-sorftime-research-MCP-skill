@@ -199,7 +199,7 @@ python skills/scripts/build_copy.py --category {cat} --sku {sku}   # 写 CP-02 /
 ## 硬规则
 
 1. ⛔ **无事实不写数值**。承重、尺寸、材质牌号，凡事实卡没有的一律不写；`load.tested = false` 时全篇禁 `lbs` / `pound` / `kg`。
-2. ⛔ **不许拿竞品宣称当本品事实**。`holds up to 11 lbs`、`TPE suction cup`、`octopus-inspired bionic` 均来自竞品 TAILI 的 `asin_detail.features`，进文案即虚假宣传。
+2. ⛔ **不许拿竞品宣称当本品事实**。`holds up to 11 lbs`、`TPE suction cup`、`octopus-inspired bionic` 均来自竞品 直接竞品 的 `asin_detail.features`，进文案即虚假宣传。
 3. ⛔ **P0 词未覆盖 = FAIL**。P1 可放弃，但必须归因到 L0/L1/L2，写不出归因不算理由。
 4. ⛔ **格式服从官方，不服从语感**。五点冒号 + 分号 + 句末无标点；描述零 HTML；ST 按字节。
 5. ⛔ **阈值与词表一律进 `copy_config.yaml`**，脚本不硬编码。写死在代码里的数据等于让产物和数据脱钩。
@@ -220,8 +220,8 @@ python skills/scripts/build_copy.py --category {cat} --sku {sku}   # 写 CP-02 /
 
 ## 已知限制
 
-- **三围缺失，C1 长期 FAIL（2026-11-18 裁定）**。11-17 版曾写「已从领星 `products_list` SKU `WP650B-5-V1` 取包装规格 21.60×8.40×8.30 cm → 8.50×3.31×3.27 in 补齐、C1 PASS」，但用户复核后确认：领星那是**包装**尺寸、单品字段为 0.00，且明确裁定「卖点不需要三维」，故 `调研/sponge-holder/00-事实卡.json` 的 `dims.outer_in` 三项保持 null。后果写死在交付物里：`check_facts.py` C1 报 3 项骨架缺失，SP23 尺寸告知 BLOCKED，标题无规格槽，全篇禁尺寸数值，主图第 5 图位（尺寸图）做不了。要恢复只需填三项后重跑 `check_facts.py`。
-- **SP07 已确认口径（2026-11-18 更新）**。原记载「SP07 被锁在卡扣材质未填」已过时：用户确认本品为**普通塑料卡扣、无金属或纤维增强**，故 SP07 走 REWRITE（`Snap-fit clips seat fully before loading`）、等级 A→C，全库 G 最高（0.467）的主攻卖点不再是可用主张，`reinforced / unbreakable / lifetime` 全禁。第 2 位痛点语料改由 B1 的适用面与禁用面（防退句）承担。
+- **本体三围缺失**。事实卡缺商品本体实测尺寸时，保留空值并标记缺口。包装尺寸和竞品尺寸属于不同口径。依赖本体尺寸的卖点、文案与尺寸图待补测后复核。
+- **卡扣强度**。本品若仅确认卡扣结构和使用步骤，可按事实卡描述安装。增强、抗断裂或寿命主张需要对应本品证据。
 - **位 3 曾判「零可埋词」，2026-11-17 已推翻**。旧判定用「词库有没有 `divided` 这个词」当标准，问错了问题——该问的是「这条讲的事，买家会用什么词搜」。改为埋 `organizer` 簇后新增覆盖 9 个词，含月搜 92,519 的 `kitchen sink organizer`。判定依据见 `06-决断规则.md` 判定 1。
 - **官方两点位口径不一致**：五点字符上限 500（Feature Bullets 页）vs 不给数字（requirements 页）；数字写法 numerals vs 1-9 英文。本项目按更新更晚的 requirements 页 + 500 硬线执行。
 - **名词连用检测是启发式的**。没有 POS 标注，靠词库 token 构成的词表判断，会漏判或误判，仅作 WARN。

@@ -293,7 +293,6 @@ def main():
 
     # ---------- 竞品痛点 ----------
     neg_l1 = sorted({c.split("|")[1] for c in neg_cols})
-    neg_l2 = sorted({c for c in neg_cols})
 
     asins = sorted({r["asin"] for r in recs if r["asin"]})
     brands = sorted({r["brand"] for r in recs})

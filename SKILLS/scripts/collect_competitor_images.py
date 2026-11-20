@@ -110,10 +110,15 @@ def gallery_rows(request):
                 yield dict(row, status="gallery_missing")
                 continue
             main_id = image_id(data.get("imageUrl"))
+            first_id = image_id(urls[0])
+            conflicting_main = bool(main_id and main_id != first_id
+                                    and any(image_id(url) == main_id for url in urls[1:]))
             for pos, url in enumerate(urls, 1):
                 slot = "副图"
                 if pos == 1:
-                    slot = "主图" if main_id and image_id(url) == main_id else "首图待核"
+                    slot = "主图" if main_id and first_id == main_id else "首图待核"
+                elif conflicting_main:
+                    slot = "图位待核"
                 yield dict(row, pos=pos, slot=slot, source_url=url, status="pending")
 
 

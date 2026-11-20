@@ -16,12 +16,13 @@
 """
 
 import argparse
-import csv
 import json
 import sys
 from pathlib import Path
 
 import yaml
+
+from csv_io import read_csv
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 CASES = []
@@ -37,10 +38,6 @@ def fail(item, msg):
 
 def warn(item, msg):
     CASES.append(("WARN", item, msg))
-
-
-def read_csv(path):
-    return list(csv.DictReader(open(path, encoding="utf-8-sig")))
 
 
 def main():

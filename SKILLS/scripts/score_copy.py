@@ -16,7 +16,6 @@ CP-07-评分明细.csv，供 build_copy.py 渲染成 xlsx 的「04_评分」表�
 
 import argparse
 import ast
-import csv
 import json
 import os
 import re
@@ -26,21 +25,12 @@ from pathlib import Path
 
 import yaml
 
+from csv_io import read_csv, write_csv
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 # ------------------------------------------------------------------ 工具
-def read_csv(path):
-    return list(csv.DictReader(open(path, encoding="utf-8-sig")))
-
-
-def write_csv(path, header, rows):
-    with open(path, "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(header)
-        w.writerows(rows)
-
-
 def split_bullet(text):
     """`Header: body` → {header, body}。五点格式是官方规定的，冒号前是 header。"""
     m = re.match(r"^([^:]{2,60}):\s*(.+)$", text.strip())
@@ -179,11 +169,11 @@ def main():
     nf, nw = comp.get("failed_checks") or 0, comp.get("warnings") or 0
     # 工具只要存在警告就判 NON-COMPLIANT，和"有没有硬伤"不是一回事，分开显示
     if nf:
-        level, status = "不合规", "FAIL"
+        status = "FAIL"
     elif nw:
-        level, status = "无失败项·有警告", "WARN"
+        status = "WARN"
     else:
-        level, status = "合规", "PASS"
+        status = "PASS"
     rows.append(["合规体检", "结论", "%s 失败 / %s 警告" % (nf, nw), status,
                  "工具原判 %s；它把警告也算作不合规，本项目按失败项分档"
                  % ("NON-COMPLIANT" if not comp.get("overall_compliant") else "COMPLIANT")])

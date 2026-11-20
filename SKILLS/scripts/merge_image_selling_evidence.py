@@ -2,16 +2,14 @@
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import re
 from collections import defaultdict
 from pathlib import Path
 
-
-def read(path):
-    with path.open(encoding="utf-8-sig", newline="") as stream:
-        return list(csv.DictReader(stream))
+from csv_io import read_csv
 
 
 def write(path, rows):
@@ -36,9 +34,9 @@ def main():
     args = parser.parse_args()
     if args.out.resolve() == args.base.resolve():
         parser.error("Use a separate output directory")
-    library = read(args.base / "SP-01-卖点库_v2.csv")
-    facts = {r["sp_id"]: r for r in read(args.base / "SP-10-FAB卖点卡.csv")}
-    original = read(args.base / "SP-02-证据链.csv")
+    library = read_csv(args.base / "SP-01-卖点库_v2.csv")
+    facts = {r["sp_id"]: r for r in read_csv(args.base / "SP-10-FAB卖点卡.csv")}
+    original = read_csv(args.base / "SP-02-证据链.csv")
     plan = json.loads(args.plan.read_text(encoding="utf-8-sig"))
     sp_ids = {row["sp_id"] for row in library}
     if not plan or any(not entry["sp_ids"] for entry in plan):
@@ -47,15 +45,25 @@ def main():
     if len(ranked) != len(set(ranked)) or not set(ranked) <= sp_ids & facts.keys():
         raise ValueError("Image plan contains duplicate or unknown selling-point IDs")
     manifest = {(r["marketplace"], r["asin"], r["pos"], r["file"]): r
-                for r in read(args.manifest) if r["status"] == "ok" and r["slot"] == "副图"}
-    rows = read(args.secondary)
+                for r in read_csv(args.manifest) if r["status"] == "ok" and r["slot"] == "副图"}
+    rows = read_csv(args.secondary)
     seen = set()
     image_by_id = defaultdict(list)
     reviewed = set()
+    image_root = args.manifest.parent.resolve()
     for row in rows:
         key = tuple(row[k] for k in ("marketplace", "asin", "pos", "file"))
         if key not in manifest or int(row["副图位次"]) != int(row["pos"]) - 1:
             raise ValueError(f"Invalid secondary image locator: {key}")
+        source = (image_root / row["file"]).resolve()
+        if not source.is_relative_to(image_root) or not source.is_file():
+            raise ValueError(f"Invalid evidence file for {key}")
+        expected_digest = manifest[key].get("sha256")
+        if key not in reviewed and expected_digest:
+            with source.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            if digest != expected_digest.lower():
+                raise ValueError(f"Evidence hash mismatch for {key}")
         reviewed.add(key)
         if row["展示任务"] != "卖点转化" or not row["SP_ID"].strip():
             continue
@@ -67,9 +75,6 @@ def main():
         if record_key in seen:
             continue
         seen.add(record_key)
-        source = args.manifest.parent / row["file"]
-        if not source.is_file():
-            raise ValueError(f"Missing evidence image: {source}")
         row = dict(row, 原图=evidence_path(source, args.out))
         image_by_id[sid].append(row)
     image_denominator = len({(key[0], key[1]) for key in reviewed})

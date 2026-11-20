@@ -197,8 +197,8 @@ python skills/scripts/check.py <项目目录>
 | `asin_detail` 的 `description` 返回 null | 描述拿不到 | 只做五点，不做描述；五点在 **`features`** 字段里，能拿到（实测 30/30） |
 | `asin_detail` 的五点字段叫 `features` | 按 `bullets` / `featureBullets` 取名会一律 null，误判成"接口不给五点" | 取字段必须写 `features`；拿到后按句子存进 `bullets` 数组 |
 | 五点词频会灌满非搜索词 | 285 条里只有 23 条是搜索词（其余是 `please` / `smooth surface` 这类句子成分） | `c_listing_mode: support_only`（默认）：只补证据，不单独发现词 |
-| **`asin_competitor` 会漏掉类目第一** | 实测海绵架类目第一的 Cisily 完全没被扩出来，直接导致差异化结论错误 | **扩池必多一步：按类目 nodeIdPath 拉 `product_research`，按销量降序** |
-| **`product_research` 默认带变体，会把样本吃干** | 实测 Cisily 30 个变体占满销量 Top 30，"扩了 30 个"实际只等效 1 个新竞品；9 个 ASIN 的词频把 `smiley face` 误判成独有卖点 | **必传 `variation: "Y"`，并做品牌去重（同品牌 ≤ 2 个）**；样本 < 15 个不判覆盖率 |
+| **`asin_competitor` 会漏掉类目第一** | 实测海绵架类目第一的 头部品牌 完全没被扩出来，直接导致差异化结论错误 | **扩池必多一步：按类目 nodeIdPath 拉 `product_research`，按销量降序** |
+| **`product_research` 默认带变体，会把样本吃干** | 实测 头部品牌 30 个变体占满销量 Top 30，"扩了 30 个"实际只等效 1 个新竞品；9 个 ASIN 的词频把 `smiley face` 误判成独有卖点 | **必传 `variation: "Y"`，并做品牌去重（同品牌 ≤ 2 个）**；样本 < 15 个不判覆盖率 |
 | **类目节点里混着不同形态的竞品** | 台面/托盘款的 `tray`、`countertop` 会把壁挂件的词频带偏，混着算出来的差异化是假的 | 扩池时按形态过滤，台面款排除；词频只用同形态样本 |
 | **类目节点里混着跨类目噪声** | 实测 100 个候选里 13 个是牛皮纸袋架、吸管架、香蕉钩 | 按 R1 品类相关过滤，标题里没有本品核心名词就丢 |
 | **五路产出各出一份、但词库没合并** | 实测前四版词库是手工维护的 87 词，B/C/D 三份产出只进了 3-5 个词 | **必须跑合并脚本，并输出 `00-五路合并追踪.csv`** |

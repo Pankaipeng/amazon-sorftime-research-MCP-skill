@@ -92,7 +92,7 @@ def main():
                     help="至少出现在几个 ASIN 里才输出（默认 1）")
     ap.add_argument("--top", type=int, default=200, help="输出前 N 条（默认 200）")
     ap.add_argument("--strip-words", default="",
-                    help="剔除词，逗号分隔。如 sunnypoint,taili,toplife")
+                    help="剔除词，逗号分隔。如 samplebrand,demo")
     ap.add_argument("--strip-brands", action="store_true",
                     help="自动把输入里 brand 字段的词拆开剔掉（推荐开着）")
     ap.add_argument("--out", help="输出 CSV 路径，不填则打印到屏幕")
