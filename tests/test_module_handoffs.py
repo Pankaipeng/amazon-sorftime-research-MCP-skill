@@ -79,6 +79,18 @@ def test_keyword_handoff(tmp_path):
     assert row["keyword"] == keyword
     assert row["search_source"] == "fixture 2026-01"
 
+    args = (tmp_path, "--require-collection")
+    assert "无法核对台账" in run(SCRIPTS / "check.py", *args, expect=1)
+    write_csv(paths["a_traffic"], ["asin", "keyword"], [["B000000001", keyword]])
+    entry = {"asin": "B000000001", "api_total": 2, "unique": 1,
+             "gap": 1, "status": "partial", "base": {"stop": "repeated_page"}}
+    ledger = tmp_path / "collection-traffic.json"
+    write_json(ledger, {"collections": [entry]})
+    assert "缺口 1，repeated_page" in run(SCRIPTS / "check.py", *args, expect=1)
+    entry.update(api_total=1, gap=0, status="complete", base={"stop": "reconciled"})
+    write_json(ledger, {"collections": [entry]})
+    assert "1 个 ASIN 对齐" in run(SCRIPTS / "check.py", *args)
+
 
 def test_selling_point_and_facts(tmp_path):
     keywords = tmp_path / "keywords.csv"

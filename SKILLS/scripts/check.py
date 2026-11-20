@@ -16,6 +16,7 @@
 """
 import argparse
 import io
+import json
 import os
 import sys
 
@@ -37,6 +38,8 @@ def main():
     ap.add_argument("project")
     ap.add_argument("--config", default=os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                      "config.yaml"))
+    ap.add_argument("--require-collection", action="store_true",
+                    help="生产交付必须提供完整流量词采集台账")
     args = ap.parse_args()
     P = os.path.abspath(args.project)
     cfg = yaml.safe_load(io.open(args.config, encoding="utf-8"))
@@ -69,6 +72,31 @@ def main():
     if not backend_present:
         detail += "；后台未提供（可选）"
     check("采集来源贡献", not zero, detail)
+
+    ledger = os.path.join(P, "collection-traffic.json")
+    if args.require_collection or os.path.isfile(ledger):
+        try:
+            with io.open(ledger, encoding="utf-8-sig") as stream:
+                collected = json.load(stream)["collections"]
+            traffic = read_csv(os.path.join(P, "0A-竞品流量词.csv"))
+            observed = {}
+            for row in traffic:
+                observed.setdefault(row["asin"], set()).add(row["keyword"].strip().casefold())
+            problems = []
+            expected = {row["asin"] for row in collected}
+            for row in collected:
+                asin = row["asin"]
+                count = len(observed.get(asin, ()))
+                if (row["status"] != "complete" or row["gap"] != 0
+                        or row["api_total"] != row["unique"] or count != row["unique"]):
+                    problems.append(f"{asin} {count}/{row['api_total']}，缺口 {row['gap']}，{row['base']['stop']}")
+            if len(expected) != len(collected) or set(observed) - expected or not expected:
+                problems.append("输入 ASIN 与采集台账不一致")
+            if sum(map(len, observed.values())) != len(traffic):
+                problems.append("采集底表存在重复 ASIN × 词")
+            check("流量词采集完整度", not problems, "；".join(problems) if problems else f"{len(expected)} 个 ASIN 对齐")
+        except (OSError, KeyError, ValueError, TypeError) as error:
+            check("流量词采集完整度", False, f"无法核对台账：{error}")
 
     # 3 EST 比例
     est_n = len([r for r in lib if r["est"] == "EST"])

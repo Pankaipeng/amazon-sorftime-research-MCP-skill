@@ -41,6 +41,7 @@ import yaml
 from csv_io import read_csv
 
 from fact_provenance import outer_dimensions_from_packaging
+from numeric_claims import bottle_issues, dimension_issues
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 # emoji 与常见符号图形，官方要点 requirements 页明列禁项
@@ -893,6 +894,9 @@ def main():
                     % ("、".join(p.split(".")[-1] for p in dims_missing), "、".join(dim_hits[:5])))
     if dim_hits and not dims_missing and outer_dimensions_from_packaging(facts):
         over.append("事实卡三围取自包装，文案却出现商品尺寸：%s" % "、".join(dim_hits[:5]))
+    elif not dims_missing:
+        over.extend(dimension_issues(frontend, facts))
+    over.extend(bottle_issues(frontend, facts))
     oz_hits = re.findall(r"\b\d+(?:\.\d+)?\s*(?:oz|ounces?)\b", frontend, re.I)
     if oz_hits and fpath(facts, "dims.net_weight_oz") is None:
         over.append("事实卡无净重，文案出现：%s" % "、".join(oz_hits[:5]))

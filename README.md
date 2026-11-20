@@ -27,7 +27,7 @@
 建议使用 Python 3.12，在仓库根目录执行。
 
 ```bash
-python -m pip install pyyaml openpyxl pytest
+python -m pip install pyyaml openpyxl pillow pytest
 python -m pytest -q
 
 python SKILLS/scripts/merge.py <项目目录>
@@ -37,6 +37,9 @@ python SKILLS/scripts/check_copy.py --category <项目目录名>
 python SKILLS/scripts/score_copy.py --category <项目目录名>
 python SKILLS/scripts/build_copy.py --category <项目目录名> --sku <SKU>
 ```
+
+实时采集和正式图片交付用 [卖家精灵分页与台账](SKILLS/modules/10-keyword/SKILL.md#卖家精灵分页与采集台账)
+与 [图片 Brief 构建与验收](SKILLS/modules/60-image-brief/README.md#构建与验收命令)。
 
 文案脚本按各模块配置从 `调研/<项目目录名>/` 读取输入。联网采集按所用 MCP 配置 `SORFTIME_API_KEY`、`SELLERSPRITE_API_KEY`、`SIF_API_KEY` 或 `XIYOU_API_KEY`。部分上游联网脚本需要 `requests`。图集采集需要安装 `Pillow`，并确保命令行可以调用 `curl`。Listing Doctor 本地运行，评分用于辅助审阅。
 

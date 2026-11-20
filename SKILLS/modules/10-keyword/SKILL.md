@@ -76,6 +76,19 @@ description: 关键词调研模块 v3。四路采集（竞品 ASIN 反查 / 竞�
 
 ## 输出（对应导图输出层）
 
+### 卖家精灵分页与采集台账
+
+正式调研先运行分页采集。分组文件复用 00 输入的 `marketplace` 和 `groups`。默认流量词使用接口近期窗口，每页 100 条。固定月对比显式传 `--month YYYYMM`。
+
+```bash
+python SKILLS/scripts/collect_sellersprite.py --tool traffic_keyword --groups "<分组 JSON>" --out "<词库目录>" --root "<品类词根>"
+python SKILLS/scripts/check.py "<词库目录>" --config "<品类配置>" --require-collection
+```
+
+CLI 从 `SELLERSPRITE_API_KEY` 读已配置的凭据。已有会话 MCP 时可将响应留在项目内，以 `--transcript` 回放，格式为 JSON 数组，每项含 `tool`、`arguments` 和工具 JSON 正文 `response`。流量词参数在 `request` 下，评论参数在外层。单页大小与调用一致。
+
+采集器按 ASIN 和词去重。连续两页无新记录时停止该查询，可用同窗口 `--root` 继续补查。`collection-traffic.json` 列出分 ASIN 总数、实收、唯一数、缺口、停止原因及每页增量。接口总数漂移、未对齐或错误时退出 2 并保留已采数据，交付只可标为部分采集。把原始 `0A-竞品流量词.csv` 留作台账核对。相关性筛选放在独立文件，由品类配置选择合并输入。
+
 **四个方法的原始产出必须各出一份，不能只交合并表。** 这是用户明确提过的要求：
 
 | 文件 | 内容 |
@@ -193,7 +206,7 @@ python skills/scripts/check.py <项目目录>
 
 | 限制 | 影响 | 处理 |
 |---|---|---|
-| `keyword_order` 实测返回 0 条 | 竞品转化分层拿不到 | 不用它。改用 `traffic_keyword` 的 `conversionKeywordType`，为空就标 `DATA_MISSING`，靠后台报表补 |
+| `keyword_order` 可能返回空或重复页 | 出单反查结果取决于站点、时间窗和接口行为 | 按查询保留实收和去重口径。为空时检查 `traffic_keyword` 的 `conversionKeywordType` 或后台报表，缺失标 `DATA_MISSING` |
 | `asin_detail` 的 `description` 返回 null | 描述拿不到 | 只做五点，不做描述；五点在 **`features`** 字段里，能拿到（实测 30/30） |
 | `asin_detail` 的五点字段叫 `features` | 按 `bullets` / `featureBullets` 取名会一律 null，误判成"接口不给五点" | 取字段必须写 `features`；拿到后按句子存进 `bullets` 数组 |
 | 五点词频会灌满非搜索词 | 285 条里只有 23 条是搜索词（其余是 `please` / `smooth surface` 这类句子成分） | `c_listing_mode: support_only`（默认）：只补证据，不单独发现词 |

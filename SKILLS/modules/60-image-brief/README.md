@@ -36,6 +36,22 @@
 
 逐图验收包含手机端检查。MAIN A/B 在相同显示大小下与竞品缩略图并排，核对商品轮廓和关键结构是否可辨。前段卖点副图分别写明要回答的购买问题；按手机实际显示尺寸检查一眼能否看懂配件对应关系、使用动作或关键结构，必要文字无需放大即可读。一个卖点需要多个画面时保留同一任务及相邻图位。
 
+### 构建与验收命令
+
+```bash
+python SKILLS/scripts/image_brief.py build --spec "<brief.json>" --workbook "<交付.xlsx>"
+python SKILLS/scripts/image_brief.py check --spec "<brief.json>" --workbook "<交付.xlsx>"
+```
+
+在规格 JSON 中填 `sku`、`marketplace`、`facts`、`image_manifest`、`rows`、`decisions` 和 `experiments`。路径值从 JSON 所在目录解析。参考图使用图集 `manifest.csv` 中已有的本地文件，可离线构建。
+
+- 每行含 `slot`、`kind`、`name`、`pixels`、`style`、`goal`、`selling_point`、`copy`、`design`、`evidence`、`acceptance`、`reference`。参考项含 `asin`、`position`、`technique`。图集确实缺图时另填 `status`（待补或待核）与 `note`，保留缺口。正式图位从 1 连续编号，以 `main_a` 开头，以 `slot: null` 的 `main_b` 收尾。副图类型为 `scenario`、`feature`、`dimensions`、`package` 或 `dimensions_and_package`。两张 MAIN 和核心场景的图片文字填「无」。
+- 美国站 MAIN 行的 `main_checks` 覆盖 `white_rgb`、`fill`、`actual_item`、`complete_frame`、`single_view`、`no_overlay`、`included_only`。具体摆位与验收写入设计和验收列。
+- 每条 `decisions` 含 `sp_id`、`copy_candidate`、`image_candidate`、`evidence`（独立 `image`、`review`、`bullet`）、`levels`（同顺序三项 0–2）、`decision`、`validation`。构建时同步计算两套权重分。
+- `experiments` 的 `main` 与 `secondary` 都写 `hypothesis`、`variable`、`controls`、`baseline`、`minimum_change`、`metrics`、`sample_or_end`、`decision`、`status`。缺分组流量时按实际填写验证状态。
+
+构建后会回读正式图数公式、原模板列、逐图内容、实际嵌入的参考图及表尾验证计划。交付前另检查工作簿可读性。Brief 通过表示设计输入齐全。成图手机端与线上成交验证在各自阶段记录。
+
 ## 美国站 MAIN 在 brief 中的检查项
 
 要求白底 RGB 255,255,255，真实商品、实际颜色与数量、主体约占画面 85%、完整入框、单一视角。只安排适用的实际随附件，移除非随附或会误导购买范围的道具。禁止叠加营销文字、角标、边框、水印或拼图。正式场景 MAIN 仅适用于有官方品类例外的商品类型；当前美国站公开例外清单未包含水槽收纳架，此类商品的场景方案放无字副图或单列候选。其他站点和品类按对应官方规范复核，查不到适用条文时请用户提供。像素按站点/类目和项目要求填写，模板保留可编辑字段。

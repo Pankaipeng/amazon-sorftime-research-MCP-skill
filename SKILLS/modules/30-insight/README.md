@@ -68,7 +68,8 @@ export_pending → merge_columns → taxonomy_stats → build_delivery。
 - **一级分类一开始写了 128 个二级，平均命中 1 次**，等于没聚类。做完第一波必须跑一次
   `merge_columns`，把「同一语义的不同措辞」并到保留列。sponge-holder 从 128 收敛到 48，
   这才是可读的分类树。**这一步不能省。**
-- 每个 ASIN 取 20 负 + 20 正即够建立稳定树；样本要声明是分层抓取，差评占比不可外推。
+- 每个 ASIN 首批取 20 负 + 20 正可开始编码。正式报告按任务补齐低星或明确抽样上限，登记各星级段接口总量、唯一实收、分页中断与变体范围。差评占比不可外推。
+- 用 `python SKILLS/scripts/collect_sellersprite.py --tool review --groups "<分组 JSON>" --out "<评论原始目录>" --stars 1 2 3` 翻页。高星用 `--stars 4 5` 单独采集。原始格式可接 `mcp_review_to_sellersprite.py`，两组台账分别落盘，返回 2 时明确报告缺口。
 - 分类树的 L1 建议控制在 20 个以内（sponge-holder 收在 19 个：差评 10 + 好评 9）。
 
 ## 两个明确缺口

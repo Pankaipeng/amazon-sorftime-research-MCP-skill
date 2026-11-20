@@ -28,6 +28,8 @@ description: 亚马逊 listing 文案生成。把已定稿的卖点与被确认�
 
 在 `copy.json` 的 `bullet_sp_ids` 数组按五点顺序逐条记录定稿卖点 ID。自检核对 ID、事实核对状态和五点计划。
 
+组装三围使用 `dims.outer_in.l/w/h`，可另存实测 `dims.outer_cm.l/w/h`。长宽高字段的命名与页面 W/D/H 不同时，在 `dims.outer_axes` 写明前台宽、深分别对应哪个事实键，例如 `{"width":"l","depth":"w"}`。酒架可用 `structure.wine_bottles_lower`、`structure.wine_bottles_per_tier` 和 `structure.wine_bottles_top` 表示下层、单层、顶层已确认容量。兼容旧事实卡的 `specs.standard_red_wine_bottles_lower_tiers` 与 `specs.bottle_tiers`。文案及图片共用数字比对。顶层容量未确认时用事实支持的定性措辞。人工复核仍覆盖未结构化的产品数量和适用条件。
+
 启用 FAB 卡后，选定卖点须为「可用」，`claim` 须填写卡片原有的「可用措辞」，每条五点须记录 ID。扩写时保留事实、适用条件和验证边界。当前海绵架配置会拦截未经核准的强吸附、抗滑及长期稳固表达，并允许在安装说明中描述事实卡已确认的吸盘数量。人工逐条核对扩写后的含义。
 
 配置卖点库 v2 后，自检按 SP ID 核对参考 M 分。Excel「07_卖点依据」展示对应分数和来源。
