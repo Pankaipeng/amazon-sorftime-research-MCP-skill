@@ -47,8 +47,8 @@ python SKILLS/scripts/image_brief.py check --spec "<brief.json>" --workbook "<�
 
 - 每行含 `slot`、`kind`、`name`、`pixels`、`style`、`goal`、`selling_point`、`copy`、`design`、`evidence`、`acceptance`、`reference`。参考项含 `asin`、`position`、`technique`。图集确实缺图时另填 `status`（待补或待核）与 `note`，保留缺口。正式图位从 1 连续编号，以 `main_a` 开头，以 `slot: null` 的 `main_b` 收尾。副图类型为 `scenario`、`feature`、`dimensions`、`package` 或 `dimensions_and_package`。两张 MAIN 和核心场景的图片文字填「无」。
 - 美国站 MAIN 行的 `main_checks` 覆盖 `white_rgb`、`fill`、`actual_item`、`complete_frame`、`single_view`、`no_overlay`、`included_only`。具体摆位与验收写入设计和验收列。
-- 每条 `decisions` 含 `sp_id`、`copy_candidate`、`image_candidate`、`evidence`（独立 `image`、`review`、`bullet`）、`levels`（同顺序三项 0–2）、`decision`、`validation`。构建时同步计算两套权重分。
-- `experiments` 的 `main` 与 `secondary` 都写 `hypothesis`、`variable`、`controls`、`baseline`、`minimum_change`、`metrics`、`sample_or_end`、`decision`、`status`。缺分组流量时按实际填写验证状态。
+- 每条 `decisions` 含 `sp_id`、`copy_candidate`、`image_candidate`、`evidence`（独立 `image`、`review`、`bullet`）、`levels`（同顺序三项 0–2）、`decision`、`validation`。可用 `difference` 标记一致、调序、独立补充等差异。构建时同步计算两套权重分。表尾每个卖点一行，依次展示 SP ID、五点原位次、Brief 图位、差异与证据、最终取舍、验收与验证。
+- `experiments` 的 `main` 与 `secondary` 都写 `hypothesis`、`variable`、`controls`、`baseline`、`minimum_change`、`metrics`、`sample_or_end`、`decision`、`status`。在独立验证表中左右对照两种实验。缺分组流量时按实际填写验证状态。
 
 构建后会回读正式图数公式、原模板列、逐图内容、实际嵌入的参考图及表尾验证计划。交付前另检查工作簿可读性。Brief 通过表示设计输入齐全。成图手机端与线上成交验证在各自阶段记录。
 

@@ -130,6 +130,24 @@ def test_brief_template_round_trip_and_rejects_missing_image(tmp_path):
     args = ("--spec", source, "--workbook")
     assert "7 个正式图位" in run(SCRIPTS / "image_brief.py", "build", *args, output)
     run(SCRIPTS / "image_brief.py", "check", *args, output)
+    workbook = load_workbook(output)
+    sheet = workbook.active
+    assert [sheet.cell(25, col).value for col in (1, 3, 5, 7, 9, 11)] == [
+        "SP ID / 卖点", "Listing 五点原位次", "图片 Brief 图位",
+        "差异与三路证据", "最终取舍", "验收与验证",
+    ]
+    assert [sheet["C26"].value, sheet["E26"].value] == ["文案第 1", "图片第 2"]
+    assert [sheet["A29"].value, sheet["C29"].value, sheet["H29"].value] == [
+        "验证项目", "主图 A/B", "副图顺序",
+    ]
+    for merged in list(sheet.merged_cells.ranges):
+        if merged.min_row == 26:
+            sheet.unmerge_cells(str(merged))
+    sheet.merge_cells("A26:L26")
+    broken_footer = tmp_path / "brief-paragraph.xlsx"
+    workbook.save(broken_footer)
+    workbook.close()
+    assert "第 26 行缺失" in run(SCRIPTS / "image_brief.py", "check", *args, broken_footer, expect=1)
     markdown = tmp_path / "brief.md"
     markdown.write_text("draft", encoding="utf-8")
     assert "Excel 模板" in run(SCRIPTS / "image_brief.py", "check", *args, markdown, expect=1)

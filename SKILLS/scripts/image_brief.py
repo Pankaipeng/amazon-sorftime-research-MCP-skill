@@ -5,13 +5,17 @@ import argparse
 from copy import copy
 import hashlib
 import json
+from math import ceil
 from pathlib import Path
 import re
 from tempfile import NamedTemporaryFile
+from unicodedata import east_asian_width
 from zipfile import BadZipFile
 
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 from csv_io import read_csv
 from fact_provenance import outer_dimensions_from_packaging
@@ -23,6 +27,8 @@ ROW_FIELDS = ("name", "pixels", "style", "goal", "selling_point", "copy",
               "design", "evidence", "acceptance")
 EXPERIMENT_FIELDS = ("hypothesis", "variable", "controls", "baseline", "minimum_change",
                      "metrics", "sample_or_end", "decision", "status")
+EXPERIMENT_LABELS = ("共同假设", "对照变量", "一致条件", "基线", "最小有意义变化",
+                     "指标", "样本或结束条件", "判定", "状态")
 MAIN_REQUIREMENTS = {
     "white_rgb", "fill", "actual_item", "complete_frame", "single_view",
     "no_overlay", "included_only",
@@ -143,22 +149,88 @@ def sheet_values(spec, row, caption):
             row["evidence"], caption, row["acceptance"]]
 
 
-def footer_lines(spec):
-    lines = ["文案与图片候选对照 · 证据顺序为图片 / 评论 / 五点 · 50/30/20 与 40/40/20"]
+def footer_rows(spec):
+    comparison = (2, 2, 2, 2, 2, 2)
+    experiments = (2, 5, 5)
+    yield "title", (12,), ("五点与图片 Brief 差异对照 · 主权重 50/30/20，复核 40/40/20",)
+    yield "header", comparison, ("SP ID / 卖点", "Listing 五点原位次", "图片 Brief 图位",
+                                 "差异与三路证据", "最终取舍", "验收与验证")
     for item in spec["decisions"]:
         scores = [sum(n * w for n, w in zip(item["levels"], weights)) / 2
                   for weights in ((50, 30, 20), (40, 40, 20))]
-        lines.append(
-            f"{item['sp_id']} · 文案 {item['copy_candidate']} · 图片 {item['image_candidate']}\n"
-            f"证据 {' / '.join(item['evidence'][k] for k in ('image', 'review', 'bullet'))} · "
-            f"等级 {item['levels']} · 得分 {scores[0]:g} / {scores[1]:g}\n"
-            f"取舍 {item['decision']} · 验证 {item['validation']}"
+        summary = item.get("difference") or "评分对照"
+        evidence = item["evidence"]
+        sources = f"{summary} · {scores[0]:g} / {scores[1]:g}\n" + "\n".join(
+            f"{label} {level}｜{evidence[key]}"
+            for label, key, level in zip(("图片", "评论", "五点"), ("image", "review", "bullet"), item["levels"])
         )
-    for key, label in (("main", "MAIN A/B 验证"), ("secondary", "副图顺序验证")):
-        item = spec["experiments"][key]
-        lines.append(label + "\n" + " · ".join(item[field] for field in EXPERIMENT_FIELDS))
-    lines.append("Brief 文件验收、实际成图验收、线上指标验证分别记录。")
-    return lines
+        yield "body", comparison, (
+            item["sp_id"], item["copy_candidate"], item["image_candidate"], sources,
+            item["decision"], item["validation"],
+        )
+    yield "gap", (12,), ("",)
+    yield "title", (12,), ("主图 A/B 与副图顺序验证",)
+    yield "header", experiments, ("验证项目", "主图 A/B", "副图顺序")
+    main, secondary = spec["experiments"]["main"], spec["experiments"]["secondary"]
+    for field, label in zip(EXPERIMENT_FIELDS, EXPERIMENT_LABELS):
+        yield "body", experiments, (label, main[field], secondary[field])
+
+
+def footer_cells(spec):
+    for row, (kind, spans, values) in enumerate(footer_rows(spec), 24):
+        start = 1
+        cells = []
+        for span, value in zip(spans, values):
+            cells.append((start, start + span - 1, value))
+            start += span
+        yield row, kind, cells
+
+
+def foot_row_height(sheet, cells):
+    lines = 1
+    for start, end, value in cells:
+        width = sum(sheet.column_dimensions[get_column_letter(col)].width
+                    for col in range(start, end + 1))
+        count = sum(max(1, ceil(sum(2 if east_asian_width(c) in {"W", "F"} else 1
+                                    for c in line) / max(1, width - 3)))
+                    for line in value.split("\n"))
+        lines = max(lines, count)
+    return max(25, min(409, 14 * lines + 10))
+
+
+def write_footer(sheet, spec):
+    for row, kind, cells in footer_cells(spec):
+        sheet.row_dimensions[row].height = 10 if kind == "gap" else foot_row_height(sheet, cells)
+        for start, end, value in cells:
+            if kind == "gap":
+                continue
+            if start < end:
+                sheet.merge_cells(start_row=row, start_column=start, end_row=row, end_column=end)
+            cell = sheet.cell(row, start, value)
+            cell.data_type = "s"
+            dark = kind in {"title", "header"}
+            fill = {"title": "143641", "header": "006C68"}.get(
+                kind, "EAF4F1" if start == 1 else "F1F6F7" if row % 2 == 0 else "FFFFFF",
+            )
+            cell.fill = PatternFill("solid", fgColor=fill)
+            cell.font = Font(name="Microsoft YaHei", size=11, bold=dark or start == 1,
+                             color="FFFFFF" if dark else "16323B")
+            cell.alignment = Alignment(vertical="center" if dark else "top", wrap_text=True)
+
+
+def check_footer(sheet, spec):
+    expected_merges = set()
+    last_row = 23
+    for row, kind, cells in footer_cells(spec):
+        last_row = row
+        if kind == "gap":
+            continue
+        for start, end, value in cells:
+            require(sheet.cell(row, start).value == value, f"表尾取舍或验证字段第 {row} 行缺失")
+            if start < end:
+                expected_merges.add(f"{get_column_letter(start)}{row}:{get_column_letter(end)}{row}")
+    actual_merges = {str(r) for r in sheet.merged_cells.ranges if r.max_row >= 24 and r.min_row <= last_row}
+    require(actual_merges == expected_merges, "表尾须按比较表和验证表分列")
 
 
 def workbook_rows(rows):
@@ -190,8 +262,7 @@ def check_workbook(path, spec, rows):
                             f"图位行 {n} 的参考图缺失或串图")
                 else:
                     require(image is None, f"图位行 {n} 标为待补却放入来源未核的图")
-            for n, line in enumerate(footer_lines(spec), 24):
-                require(sheet[f"A{n}"].value == line, f"表尾取舍或验证计划第 {n} 行缺失")
+            check_footer(sheet, spec)
         finally:
             workbook.close()
             template.close()
@@ -224,14 +295,9 @@ def build_workbook(path, spec, rows):
         alignment = copy(sheet[f"K{n}"].alignment)
         alignment.vertical = "bottom"
         sheet[f"K{n}"].alignment = alignment
-    for n, line in enumerate(footer_lines(spec), 24):
-        sheet.merge_cells(start_row=n, start_column=1, end_row=n, end_column=12)
-        cell = sheet.cell(n, 1)
-        cell.value = line
-        cell._style = copy(sheet["A17"]._style)
-        sheet.row_dimensions[n].height = 58
     for column, width in {"B": 16, "G": 23, "H": 26, "I": 40, "J": 26, "K": 21, "L": 41}.items():
         sheet.column_dimensions[column].width = max(width, sheet.column_dimensions[column].width)
+    write_footer(sheet, spec)
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(suffix=".xlsx", dir=path.parent, delete=False) as stream:
         staged = Path(stream.name)
